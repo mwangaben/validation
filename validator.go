@@ -1,8 +1,7 @@
-package validator
+package validation
 
 import (
 	"fmt"
-	_ "reflect"
 	"strings"
 )
 
@@ -46,6 +45,7 @@ func (v *Validator) SetDB(db interface{}) {
 }
 
 // Validate validates data against rules
+// Validate validates data against rules
 func (v *Validator) Validate(data map[string]interface{}, rules map[string][]string) bool {
 	v.data = data
 	v.rules = rules
@@ -54,7 +54,7 @@ func (v *Validator) Validate(data map[string]interface{}, rules map[string][]str
 	for field, fieldRules := range rules {
 		value := data[field]
 		for _, rule := range fieldRules {
-			if !v.validateRule(field, value, rule) {
+			if !v.validateRule(field, value, rule, data) { // Pass data as 4th parameter
 				v.addError(field, v.getErrorMessage(field, rule))
 			}
 		}
@@ -63,8 +63,8 @@ func (v *Validator) Validate(data map[string]interface{}, rules map[string][]str
 	return len(v.errors) == 0
 }
 
-// validateRule validates a single rule
-func (v *Validator) validateRule(field string, value interface{}, rule string) bool {
+// validateRule validates a single rule - Updated to accept data
+func (v *Validator) validateRule(field string, value interface{}, rule string, data map[string]interface{}) bool {
 	ruleParts := strings.Split(rule, ":")
 	ruleName := ruleParts[0]
 	ruleParams := []string{}
@@ -88,7 +88,8 @@ func (v *Validator) validateRule(field string, value interface{}, rule string) b
 	case "numeric":
 		return v.validateNumeric(value)
 	case "unique":
-		return v.validateUnique(value, ruleParams[0], ruleParams[1:]...)
+		// Pass the data map to validateUnique
+		return v.validateUnique(value, data, ruleParams[0], ruleParams[1:]...)
 	case "exists":
 		return v.validateExists(value, ruleParams[0], ruleParams[1:]...)
 	case "in":
@@ -138,14 +139,29 @@ func (v *Validator) getErrorMessage(field, rule string) string {
 	ruleParts := strings.Split(rule, ":")
 	ruleName := ruleParts[0]
 
+	// Get parameter safely
+	param := ""
+	if len(ruleParts) > 1 {
+		param = ruleParts[1]
+	}
+
+	// Special handling for between rule (needs two parameters)
+	if ruleName == "between" {
+		params := strings.Split(param, ",")
+		if len(params) == 2 {
+			return fmt.Sprintf("The %s must be between %s and %s.", field, params[0], params[1])
+		}
+		return fmt.Sprintf("The %s must be between the specified values.", field)
+	}
+
 	messages := map[string]string{
 		"required":  fmt.Sprintf("The %s field is required.", field),
 		"email":     fmt.Sprintf("The %s must be a valid email address.", field),
 		"string":    fmt.Sprintf("The %s must be a string.", field),
 		"int":       fmt.Sprintf("The %s must be an integer.", field),
 		"numeric":   fmt.Sprintf("The %s must be numeric.", field),
-		"min":       fmt.Sprintf("The %s must be at least %s.", field, strings.Split(rule, ":")[1]),
-		"max":       fmt.Sprintf("The %s may not be greater than %s.", field, strings.Split(rule, ":")[1]),
+		"min":       fmt.Sprintf("The %s must be at least %s.", field, param),
+		"max":       fmt.Sprintf("The %s may not be greater than %s.", field, param),
 		"in":        fmt.Sprintf("The selected %s is invalid.", field),
 		"not_in":    fmt.Sprintf("The selected %s is invalid.", field),
 		"confirmed": fmt.Sprintf("The %s confirmation does not match.", field),
@@ -157,7 +173,6 @@ func (v *Validator) getErrorMessage(field, rule string) string {
 		"alpha_num": fmt.Sprintf("The %s may only contain letters and numbers.", field),
 		"boolean":   fmt.Sprintf("The %s field must be true or false.", field),
 		"array":     fmt.Sprintf("The %s must be an array.", field),
-		"between":   fmt.Sprintf("The %s must be between %s and %s.", field, strings.Split(rule, ":")[1]),
 		"phone":     fmt.Sprintf("The %s must be a valid phone number.", field),
 		"password":  fmt.Sprintf("The %s must be at least 8 characters with at least one uppercase, one lowercase, and one number.", field),
 		"uuid":      fmt.Sprintf("The %s must be a valid UUID.", field),

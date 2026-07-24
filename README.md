@@ -5,12 +5,12 @@ A Laravel-style validation package for Go.
 ## Installation
 
 ```bash
-go get github.com/mwangaben/validator
+go get github.com/mwangaben/validation
 ```
 ## Usage
 #### Basic Validation
 ```go
-import "github.com/mwangaben/validator"
+import "github.com/mwangaben/validation"
 
 validator := validator.NewValidator()
 
@@ -76,6 +76,76 @@ func (uv *UserValidator) ValidateCreateUser(data map[string]interface{}) error {
     return nil
 }
 ```
+
+#### 1. User Registration
+```go
+data := map[string]interface{}{
+    "name":     "John Doe",
+    "email":    "john@example.com",
+    "password": "SecurePass123",
+}
+
+rules := map[string][]string{
+    "name":     {"required", "string", "min:2", "max:100"},
+    "email":    {"required", "email", "unique:users,email"},
+    "password": {"required", "string", "min:8", "password"},
+}
+```
+
+#### 2. User Update
+```go
+data := map[string]interface{}{
+    "email": "john@example.com",
+    "id":    1,
+}
+
+rules := map[string][]string{
+    "email": {"required", "email", "unique:users,email,id"},
+    "id":    {"exists:users,id"},
+}
+```
+
+#### 3. Foreign Key Validation
+```go
+data := map[string]interface{}{
+    "user_id":    1,
+    "product_id": "P001",
+    "quantity":   5,
+}
+
+rules := map[string][]string{
+    "user_id":    {"exists:users,id"},
+    "product_id": {"exists:products,code"},
+    "quantity":   {"int", "min:1", "max:100"},
+}
+```
+
+#### 4. API Request Validation
+
+```go
+func CreateUserHandler(c *gin.Context) {
+    var req CreateUserRequest
+    c.ShouldBindJSON(&req)
+    
+    data := map[string]interface{}{
+        "name":  req.Name,
+        "email": req.Email,
+    }
+    
+    rules := map[string][]string{
+        "name":  {"required", "string", "min:2", "max:100"},
+        "email": {"required", "email", "unique:users,email"},
+    }
+    
+    if !validator.Validate(data, rules) {
+        c.JSON(400, gin.H{"errors": validator.Errors()})
+        return
+    }
+    
+    // Create user...
+}
+```
+
 
 ### Available Rules
 
