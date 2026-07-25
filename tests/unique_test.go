@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/mwangaben/validation"
@@ -231,5 +232,190 @@ func TestUniqueExceptID(t *testing.T) {
 	result2 := validator.Validate(data2, rules2)
 	if result2 {
 		t.Errorf("Expected validation to fail when excepting different ID")
+	}
+}
+
+// New test for custom error messages
+func TestCustomErrorMessages(t *testing.T) {
+	validator := validation.NewValidatorWithDB(db)
+
+	// Set custom error messages
+	validator.WithMessages(map[string]string{
+		"name.required":  "The user's full name is required.",
+		"name.min":       "The name must be at least 2 characters.",
+		"name.max":       "The name may not exceed 100 characters.",
+		"email.required": "The email address is required.",
+		"email.email":    "Please provide a valid email address.",
+		"email.unique":   "This email is already registered. Please use a different one.",
+		"age.required":   "The age is required.",
+		"age.int":        "The age must be a number.",
+		"age.between":    "The age must be between 1 and 150.",
+	})
+
+	data := map[string]interface{}{
+		"name":  "",                 // Empty to trigger required
+		"email": "john@example.com", // Already exists
+		"age":   200,                // Out of range
+	}
+
+	rules := map[string][]string{
+		"name":  {validation.Required(), validation.String(), validation.Min(2), validation.Max(100)},
+		"email": {validation.Required(), validation.Email(), validation.Unique("users", "email")},
+		"age":   {validation.Required(), validation.Int(), validation.Between(1, 150)},
+	}
+
+	result := validator.Validate(data, rules)
+
+	if result {
+		t.Errorf("Expected validation to fail, but it passed")
+	}
+
+	// Check custom error messages
+	errors := validator.Errors()
+
+	expectedMessages := map[string]string{
+		"name":  "The user's full name is required.",
+		"email": "This email is already registered. Please use a different one.",
+		"age":   "The age must be between 1 and 150.",
+	}
+
+	for field, expected := range expectedMessages {
+		if msgs, ok := errors[field]; ok && len(msgs) > 0 {
+			if msgs[0] != expected {
+				t.Errorf("Expected error for field '%s' to be '%s', got '%s'", field, expected, msgs[0])
+			}
+		} else {
+			t.Errorf("Expected error for field '%s' not found", field)
+		}
+	}
+
+	t.Logf("Custom error messages: %+v", errors)
+}
+
+// New test for structured GraphQL errors
+func TestStructuredGraphQLErrors(t *testing.T) {
+	validator := validation.NewValidatorWithDB(db)
+
+	data := map[string]interface{}{
+		"name":  "",
+		"email": "john@example.com",
+		"age":   200,
+	}
+
+	rules := map[string][]string{
+		"name":  {validation.Required(), validation.String(), validation.Min(2), validation.Max(100)},
+		"email": {validation.Required(), validation.Email(), validation.Unique("users", "email")},
+		"age":   {validation.Required(), validation.Int(), validation.Between(1, 150)},
+	}
+
+	validator.Validate(data, rules)
+
+	if validator.Passed() {
+		t.Errorf("Expected validation to fail")
+	}
+
+	// Test ToGraphQLError
+	graphQLError := validator.ToGraphQLError("createUser")
+
+	// Verify structure
+	if msg, ok := graphQLError["message"].(string); !ok || msg != "Validation failed for the field [createUser]." {
+		t.Errorf("Expected message to be 'Validation failed for the field [createUser].', got '%v'", msg)
+	}
+
+	extensions, ok := graphQLError["extensions"].(map[string]interface{})
+	if !ok {
+		t.Errorf("Expected extensions to be a map")
+	}
+
+	validation, ok := extensions["validation"].(map[string][]string)
+	if !ok {
+		t.Errorf("Expected validation to be a map")
+	}
+
+	// Check that validation errors are formatted as input.field
+	for key := range validation {
+		if key[:6] != "input." {
+			t.Errorf("Expected error key to start with 'input.', got '%s'", key)
+		}
+	}
+
+	// Print the structured error as JSON
+	jsonData, _ := json.MarshalIndent(graphQLError, "", "  ")
+	t.Logf("Structured GraphQL Error:\n%s", string(jsonData))
+}
+
+// New test for custom validator class pattern
+func TestCustomValidatorClass(t *testing.T) {
+	// Create a custom validator like in Lighthouse PHP
+	type UserValidator struct {
+		*validation.Validator
+	}
+
+	NewUserValidator := func() *UserValidator {
+		v := validation.NewValidatorWithDB(db)
+		v.WithMessages(map[string]string{
+			"name.required":  "The user's full name is required.",
+			"name.min":       "The name must be at least 2 characters.",
+			"name.max":       "The name may not exceed 100 characters.",
+			"email.required": "The email address is required.",
+			"email.email":    "Please provide a valid email address.",
+			"email.unique":   "This email is already registered. Please use a different one.",
+			"age.required":   "The age is required.",
+			"age.int":        "The age must be a number.",
+			"age.between":    "The age must be between 1 and 150.",
+		})
+		return &UserValidator{Validator: v}
+	}
+
+	validator := NewUserValidator()
+
+	data := map[string]interface{}{
+		"name":  "John Doe",
+		"email": "john@example.com",
+		"age":   30,
+	}
+
+	rules := map[string][]string{
+		"name":  {validation.Required(), validation.String(), validation.Min(2), validation.Max(100)},
+		"email": {validation.Required(), validation.Email(), validation.Unique("users", "email")},
+		"age":   {validation.Required(), validation.Int(), validation.Between(1, 150)},
+	}
+
+	result := validator.Validate(data, rules)
+
+	// Should fail because John Doe already exists
+	if result {
+		t.Errorf("Expected validation to fail because John Doe already exists")
+	}
+
+	t.Logf("Validation errors: %s", validator.Error())
+}
+
+// New test for new validation rules
+func TestNewValidationRules(t *testing.T) {
+	validator := validation.NewValidatorWithDB(db)
+
+	// Test password rule
+	data := map[string]interface{}{
+		"password": "Weak",
+	}
+	rules := map[string][]string{
+		"password": {validation.Password()},
+	}
+	result := validator.Validate(data, rules)
+	if result {
+		t.Errorf("Expected weak password to fail validation")
+	}
+
+	// Test UUID rule
+	data2 := map[string]interface{}{
+		"uuid": "invalid-uuid",
+	}
+	rules2 := map[string][]string{
+		"uuid": {validation.UUID()},
+	}
+	result2 := validator.Validate(data2, rules2)
+	if result2 {
+		t.Errorf("Expected invalid UUID to fail validation")
 	}
 }

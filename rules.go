@@ -29,6 +29,8 @@ const (
 	RulePhone     = "phone"
 	RulePassword  = "password"
 	RuleUUID      = "uuid"
+	RuleMaxLength = "max_length"
+	RuleMinLength = "min_length"
 )
 
 // Helper functions to build rules
@@ -154,4 +156,14 @@ func Password() string {
 // UUID returns uuid rule
 func UUID() string {
 	return RuleUUID
+}
+
+// MaxLength returns max length rule
+func MaxLength(length int) string {
+	return fmt.Sprintf("%s:%d", RuleMaxLength, length)
+}
+
+// MinLength returns min length rule
+func MinLength(length int) string {
+	return fmt.Sprintf("%s:%d", RuleMinLength, length)
 }

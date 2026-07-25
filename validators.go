@@ -2,7 +2,6 @@ package validation
 
 import (
 	"fmt"
-	"gorm.io/gorm" // Add this import
 	"net/mail"
 	"net/url"
 	"reflect"
@@ -10,14 +9,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
-)
 
-// DBInterface defines the database interface needed for validation
-type DBInterface interface {
-	Table(name string) interface{}
-	Where(query interface{}, args ...interface{}) interface{}
-	Count(count *int64) interface{}
-}
+	"gorm.io/gorm"
+)
 
 // validateRequired checks if value is not empty
 func (v *Validator) validateRequired(value interface{}) bool {
@@ -143,7 +137,6 @@ func (v *Validator) validateUnique(value interface{}, data map[string]interface{
 		column = columns[0]
 	}
 
-	// Get the except ID from the data map (now passed as parameter)
 	if len(columns) > 1 {
 		exceptColumn := columns[1]
 		if val, exists := data[exceptColumn]; exists {
@@ -175,11 +168,9 @@ func (v *Validator) validateUnique(value interface{}, data map[string]interface{
 	// Try to assert v.db as *gorm.DB
 	db, ok := v.db.(*gorm.DB)
 	if !ok {
-		// If not *gorm.DB, try reflection approach
-		return v.validateUniqueReflection(value, table, column, exceptID, strValue)
+		return true
 	}
 
-	// Use GORM's Where and Count
 	var count int64
 	query := db.Table(table).Where(column+" = ?", strValue)
 
@@ -189,90 +180,16 @@ func (v *Validator) validateUnique(value interface{}, data map[string]interface{
 
 	result := query.Count(&count)
 	if result.Error != nil {
-		return true // Return true if query fails
-	}
-
-	return count == 0
-}
-
-// validateUniqueReflection uses reflection for non-GORM DB
-func (v *Validator) validateUniqueReflection(value interface{}, table string, column string, exceptID int, strValue string) bool {
-	// Use reflection to call database methods
-	dbVal := reflect.ValueOf(v.db)
-	if dbVal.Kind() == reflect.Ptr {
-		dbVal = dbVal.Elem()
-	}
-
-	// Check if dbVal is valid and has the required methods
-	if !dbVal.IsValid() {
-		return true
-	}
-
-	// Get the table using reflection
-	tableMethod := dbVal.MethodByName("Table")
-	if !tableMethod.IsValid() {
-		return true
-	}
-
-	// Call Table method
-	tableResults := tableMethod.Call([]reflect.Value{reflect.ValueOf(table)})
-	if len(tableResults) == 0 {
-		return true
-	}
-	tableResult := tableResults[0]
-
-	// Check if tableResult is valid
-	if !tableResult.IsValid() || tableResult.IsNil() {
-		return true
-	}
-
-	// Get the where clause
-	whereMethod := tableResult.MethodByName("Where")
-	if !whereMethod.IsValid() {
-		return true
-	}
-
-	query := fmt.Sprintf("%s = ?", column)
-	whereResults := whereMethod.Call([]reflect.Value{
-		reflect.ValueOf(query),
-		reflect.ValueOf(strValue),
-	})
-	if len(whereResults) == 0 {
-		return true
-	}
-	whereResult := whereResults[0]
-
-	// If exceptID is provided, exclude that record
-	if exceptID > 0 {
-		whereMethod2 := whereResult.MethodByName("Where")
-		if whereMethod2.IsValid() {
-			whereResult = whereMethod2.Call([]reflect.Value{
-				reflect.ValueOf("id != ?"),
-				reflect.ValueOf(exceptID),
-			})[0]
-		}
-	}
-
-	// Count
-	countMethod := whereResult.MethodByName("Count")
-	if !countMethod.IsValid() {
-		return true
-	}
-
-	var count int64
-	countResults := countMethod.Call([]reflect.Value{reflect.ValueOf(&count)})
-	if len(countResults) == 0 {
 		return true
 	}
 
 	return count == 0
 }
 
-// validateExists checks if value exists in database
 // validateExists checks if value exists in database
 func (v *Validator) validateExists(value interface{}, table string, columns ...string) bool {
 	if v.db == nil {
-		return false // If no DB, value doesn't exist
+		return false
 	}
 
 	column := "id"
@@ -287,65 +204,17 @@ func (v *Validator) validateExists(value interface{}, table string, columns ...s
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		strValue = fmt.Sprintf("%v", val)
 	default:
-		return false // If value type is not supported, it doesn't exist
+		return false
 	}
 
-	// Try to assert v.db as *gorm.DB
 	db, ok := v.db.(*gorm.DB)
-	if ok {
-		// Use GORM directly
-		var count int64
-		result := db.Table(table).Where(column+" = ?", strValue).Count(&count)
-		if result.Error != nil {
-			return false
-		}
-		return count > 0
-	}
-
-	// Use reflection for non-GORM DB
-	dbVal := reflect.ValueOf(v.db)
-	if dbVal.Kind() == reflect.Ptr {
-		dbVal = dbVal.Elem()
-	}
-
-	// Check if dbVal is valid
-	if !dbVal.IsValid() {
+	if !ok {
 		return false
 	}
 
-	// Get the table
-	tableMethod := dbVal.MethodByName("Table")
-	if !tableMethod.IsValid() {
-		return false
-	}
-	tableResult := tableMethod.Call([]reflect.Value{reflect.ValueOf(table)})
-	if len(tableResult) == 0 || tableResult[0].IsNil() {
-		return false
-	}
-
-	// Get the where clause
-	whereMethod := tableResult[0].MethodByName("Where")
-	if !whereMethod.IsValid() {
-		return false
-	}
-
-	query := fmt.Sprintf("%s = ?", column)
-	whereResult := whereMethod.Call([]reflect.Value{
-		reflect.ValueOf(query),
-		reflect.ValueOf(strValue),
-	})
-	if len(whereResult) == 0 || whereResult[0].IsNil() {
-		return false
-	}
-
-	// Count
-	countMethod := whereResult[0].MethodByName("Count")
-	if !countMethod.IsValid() {
-		return false
-	}
 	var count int64
-	countResult := countMethod.Call([]reflect.Value{reflect.ValueOf(&count)})
-	if len(countResult) == 0 {
+	result := db.Table(table).Where(column+" = ?", strValue).Count(&count)
+	if result.Error != nil {
 		return false
 	}
 
@@ -489,7 +358,6 @@ func (v *Validator) validatePhone(value interface{}) bool {
 	if !ok {
 		return false
 	}
-	// Basic phone validation (international format)
 	matched, _ := regexp.MatchString(`^\+?[1-9]\d{1,14}$`, str)
 	return matched
 }

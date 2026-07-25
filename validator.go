@@ -1,50 +1,49 @@
 package validation
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
 
 // Validator handles validation
 type Validator struct {
-	errors map[string][]string
-	data   map[string]interface{}
-	rules  map[string][]string
-	db     interface{} // Database interface for unique/exists checks
-}
-
-// ValidatorInterface defines the validator contract
-type ValidatorInterface interface {
-	Validate(data map[string]interface{}, rules map[string][]string) bool
-	Errors() map[string][]string
-	Error() string
-	Passed() bool
-	Failed() bool
-	GetValidationErrors() map[string][]string
-	SetDB(db interface{})
+	errors   map[string][]string
+	data     map[string]interface{}
+	rules    map[string][]string
+	db       interface{}
+	messages map[string]string // Custom error messages
 }
 
 // NewValidator creates a new validator instance
 func NewValidator() *Validator {
 	return &Validator{
-		errors: make(map[string][]string),
+		errors:   make(map[string][]string),
+		messages: make(map[string]string),
 	}
 }
 
 // NewValidatorWithDB creates a new validator instance with database connection
 func NewValidatorWithDB(db interface{}) *Validator {
 	return &Validator{
-		errors: make(map[string][]string),
-		db:     db,
+		errors:   make(map[string][]string),
+		db:       db,
+		messages: make(map[string]string),
 	}
 }
 
-// SetDB sets the database connection for the validator
-func (v *Validator) SetDB(db interface{}) {
-	v.db = db
+// WithMessages sets custom error messages
+func (v *Validator) WithMessages(messages map[string]string) *Validator {
+	v.messages = messages
+	return v
 }
 
-// Validate validates data against rules
+// SetMessage sets a custom error message for a specific rule
+func (v *Validator) SetMessage(rule, message string) *Validator {
+	v.messages[rule] = message
+	return v
+}
+
 // Validate validates data against rules
 func (v *Validator) Validate(data map[string]interface{}, rules map[string][]string) bool {
 	v.data = data
@@ -54,7 +53,7 @@ func (v *Validator) Validate(data map[string]interface{}, rules map[string][]str
 	for field, fieldRules := range rules {
 		value := data[field]
 		for _, rule := range fieldRules {
-			if !v.validateRule(field, value, rule, data) { // Pass data as 4th parameter
+			if !v.validateRule(field, value, rule, data) {
 				v.addError(field, v.getErrorMessage(field, rule))
 			}
 		}
@@ -63,7 +62,7 @@ func (v *Validator) Validate(data map[string]interface{}, rules map[string][]str
 	return len(v.errors) == 0
 }
 
-// validateRule validates a single rule - Updated to accept data
+// validateRule validates a single rule
 func (v *Validator) validateRule(field string, value interface{}, rule string, data map[string]interface{}) bool {
 	ruleParts := strings.Split(rule, ":")
 	ruleName := ruleParts[0]
@@ -88,7 +87,6 @@ func (v *Validator) validateRule(field string, value interface{}, rule string, d
 	case "numeric":
 		return v.validateNumeric(value)
 	case "unique":
-		// Pass the data map to validateUnique
 		return v.validateUnique(value, data, ruleParams[0], ruleParams[1:]...)
 	case "exists":
 		return v.validateExists(value, ruleParams[0], ruleParams[1:]...)
@@ -138,22 +136,23 @@ func (v *Validator) addError(field, message string) {
 func (v *Validator) getErrorMessage(field, rule string) string {
 	ruleParts := strings.Split(rule, ":")
 	ruleName := ruleParts[0]
-
-	// Get parameter safely
 	param := ""
 	if len(ruleParts) > 1 {
 		param = ruleParts[1]
 	}
 
-	// Special handling for between rule (needs two parameters)
-	if ruleName == "between" {
-		params := strings.Split(param, ",")
-		if len(params) == 2 {
-			return fmt.Sprintf("The %s must be between %s and %s.", field, params[0], params[1])
-		}
-		return fmt.Sprintf("The %s must be between the specified values.", field)
+	// Check for custom message for this specific field and rule
+	customKey := fmt.Sprintf("%s.%s", field, ruleName)
+	if msg, ok := v.messages[customKey]; ok {
+		return msg
 	}
 
+	// Check for custom message for this rule
+	if msg, ok := v.messages[ruleName]; ok {
+		return msg
+	}
+
+	// Default messages
 	messages := map[string]string{
 		"required":  fmt.Sprintf("The %s field is required.", field),
 		"email":     fmt.Sprintf("The %s must be a valid email address.", field),
@@ -173,6 +172,7 @@ func (v *Validator) getErrorMessage(field, rule string) string {
 		"alpha_num": fmt.Sprintf("The %s may only contain letters and numbers.", field),
 		"boolean":   fmt.Sprintf("The %s field must be true or false.", field),
 		"array":     fmt.Sprintf("The %s must be an array.", field),
+		"between":   fmt.Sprintf("The %s must be between %s.", field, param),
 		"phone":     fmt.Sprintf("The %s must be a valid phone number.", field),
 		"password":  fmt.Sprintf("The %s must be at least 8 characters with at least one uppercase, one lowercase, and one number.", field),
 		"uuid":      fmt.Sprintf("The %s must be a valid UUID.", field),
@@ -198,6 +198,31 @@ func (v *Validator) Error() string {
 		}
 	}
 	return strings.Join(messages, "; ")
+}
+
+// ToGraphQLError converts validation errors to GraphQL format
+func (v *Validator) ToGraphQLError(operationName string) map[string]interface{} {
+	validationErrors := make(map[string][]string)
+
+	for field, messages := range v.errors {
+		// Format field as input.field_name
+		key := fmt.Sprintf("input.%s", field)
+		validationErrors[key] = messages
+	}
+
+	return map[string]interface{}{
+		"message": fmt.Sprintf("Validation failed for the field [%s].", operationName),
+		"extensions": map[string]interface{}{
+			"validation": validationErrors,
+		},
+	}
+}
+
+// ToJSON returns JSON representation of errors
+func (v *Validator) ToJSON(operationName string) string {
+	errData := v.ToGraphQLError(operationName)
+	data, _ := json.MarshalIndent(errData, "", "  ")
+	return string(data)
 }
 
 // Passed checks if validation passed
