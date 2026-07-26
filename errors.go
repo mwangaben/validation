@@ -3,72 +3,89 @@ package validation
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
-// ValidationError represents a validation error
+// ValidationError represents a single validation error with field information
 type ValidationError struct {
-	Field   string   `json:"field"`
-	Message string   `json:"message"`
-	Rules   []string `json:"rules,omitempty"`
+	Field   string `json:"field"`
+	Message string `json:"message"`
 }
 
-// ValidationErrors collection of validation errors
+// ValidationErrors is a collection of validation errors
 type ValidationErrors struct {
-	Errors map[string][]string `json:"errors"`
+	Errors []ValidationError `json:"errors"`
 }
 
-// NewValidationErrors creates a new ValidationErrors
-func NewValidationErrors(errors map[string][]string) *ValidationErrors {
-	return &ValidationErrors{
-		Errors: errors,
+// Error implements the error interface
+func (ve *ValidationErrors) Error() string {
+	if len(ve.Errors) == 0 {
+		return "validation passed"
+	}
+
+	var messages []string
+	for _, err := range ve.Errors {
+		messages = append(messages, err.Field+": "+err.Message)
+	}
+	return strings.Join(messages, "; ")
+}
+
+// ToMap converts validation errors to a map format (field => []messages)
+func (ve *ValidationErrors) ToMap() map[string][]string {
+	result := make(map[string][]string)
+	for _, err := range ve.Errors {
+		field := err.Field
+		if idx := strings.Index(field, "."); idx != -1 {
+			field = field[:idx]
+		}
+		message := strings.TrimPrefix(err.Message, "The ")
+		message = strings.TrimSuffix(message, ".")
+		message = strings.TrimSpace(message)
+		result[field] = append(result[field], message)
+	}
+	return result
+}
+
+// ToGraphQLExtensions converts to GraphQL extension format
+// This is the key method for integrating with graph-gophers
+func (ve *ValidationErrors) ToGraphQLExtensions() map[string]interface{} {
+	if len(ve.Errors) == 0 {
+		return nil
+	}
+	return map[string]interface{}{
+		"validation": ve.ToMap(),
 	}
 }
 
-// Error implements error interface
-func (e *ValidationErrors) Error() string {
-	return fmt.Sprintf("validation failed: %v", e.Errors)
-}
-
-// ToJSON returns JSON representation
-func (e *ValidationErrors) ToJSON() string {
-	data, _ := json.Marshal(e)
-	return string(data)
-}
-
-// HasErrors checks if there are any errors
-func (e *ValidationErrors) HasErrors() bool {
-	return len(e.Errors) > 0
-}
-
-// Get returns errors for a specific field
-func (e *ValidationErrors) Get(field string) []string {
-	if errors, ok := e.Errors[field]; ok {
-		return errors
+// ToGraphQLError creates a GraphQL error with extensions
+func (ve *ValidationErrors) ToGraphQLError(operationName string) *ValidationGraphQLError {
+	if len(ve.Errors) == 0 {
+		return nil
 	}
-	return []string{}
-}
-
-// First returns the first error message for a field
-func (e *ValidationErrors) First(field string) string {
-	if errors, ok := e.Errors[field]; ok && len(errors) > 0 {
-		return errors[0]
+	return &ValidationGraphQLError{
+		Message:    fmt.Sprintf("Validation failed for the field [%s].", operationName),
+		Path:       []interface{}{operationName},
+		Extensions: ve.ToGraphQLExtensions(),
 	}
-	return ""
 }
 
-// All returns all error messages
-func (e *ValidationErrors) All() map[string][]string {
-	return e.Errors
+// ToJSON returns the validation errors as JSON
+func (ve *ValidationErrors) ToJSON() string {
+	bytes, _ := json.Marshal(ve.ToMap())
+	return string(bytes)
 }
 
-// ToMap converts errors to a map
-func (e *ValidationErrors) ToMap() map[string]interface{} {
-	result := make(map[string]interface{})
-	for field, messages := range e.Errors {
-		if len(messages) == 1 {
-			result[field] = messages[0]
-		} else {
-			result[field] = messages
+// HasErrors checks if there are any validation errors
+func (ve *ValidationErrors) HasErrors() bool {
+	return len(ve.Errors) > 0
+}
+
+// GetFieldErrors returns errors for a specific field
+func (ve *ValidationErrors) GetFieldErrors(field string) []string {
+	var result []string
+	for _, err := range ve.Errors {
+		if err.Field == field {
+			result = append(result, err.Message)
 		}
 	}
 	return result
