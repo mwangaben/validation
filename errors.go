@@ -47,7 +47,6 @@ func (ve *ValidationErrors) ToMap() map[string][]string {
 }
 
 // ToGraphQLExtensions converts to GraphQL extension format
-// This is the key method for integrating with graph-gophers
 func (ve *ValidationErrors) ToGraphQLExtensions() map[string]interface{} {
 	if len(ve.Errors) == 0 {
 		return nil
@@ -58,14 +57,15 @@ func (ve *ValidationErrors) ToGraphQLExtensions() map[string]interface{} {
 }
 
 // ToGraphQLError creates a GraphQL error with extensions
+// This is the main method to use in resolvers
 func (ve *ValidationErrors) ToGraphQLError(operationName string) *ValidationGraphQLError {
 	if len(ve.Errors) == 0 {
 		return nil
 	}
 	return &ValidationGraphQLError{
-		Message:    fmt.Sprintf("Validation failed for the field [%s].", operationName),
-		Path:       []interface{}{operationName},
-		Extensions: ve.ToGraphQLExtensions(),
+		Message:        fmt.Sprintf("Validation failed for the field [%s].", operationName),
+		Path:           []interface{}{operationName},
+		ExtensionsData: ve.ToGraphQLExtensions(),
 	}
 }
 
@@ -89,4 +89,22 @@ func (ve *ValidationErrors) GetFieldErrors(field string) []string {
 		}
 	}
 	return result
+}
+
+// ValidationGraphQLError is a custom error type for GraphQL validation errors
+// This implements the ResolverError interface for graph-gophers/graphql-go
+type ValidationGraphQLError struct {
+	Message        string                 `json:"message"`
+	Path           []interface{}          `json:"path,omitempty"`
+	ExtensionsData map[string]interface{} `json:"extensions"`
+}
+
+// Error implements the error interface
+func (e *ValidationGraphQLError) Error() string {
+	return e.Message
+}
+
+// Extensions implements the ResolverError interface for graph-gophers/graphql-go
+func (e *ValidationGraphQLError) Extensions() map[string]interface{} {
+	return e.ExtensionsData
 }

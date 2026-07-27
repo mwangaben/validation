@@ -63,7 +63,6 @@ func (v *Validator) Validate(data map[string]interface{}, rules map[string][]str
 }
 
 // ValidateStruct performs validation and returns structured errors
-// This is the new method that returns structured validation errors
 func (v *Validator) ValidateStruct(data map[string]interface{}, rules map[string][]string) (*ValidationErrors, bool) {
 	valid := v.Validate(data, rules)
 	if valid {
@@ -80,20 +79,16 @@ func (v *Validator) ParseValidationErrors() *ValidationErrors {
 		return errors
 	}
 
-	// Convert map errors to structured format
 	for field, messages := range v.errors {
 		for _, message := range messages {
-			// Clean up the message
 			cleanMessage := strings.TrimPrefix(message, "The ")
 			cleanMessage = strings.TrimSuffix(cleanMessage, ".")
 			cleanMessage = strings.TrimSpace(cleanMessage)
 
-			// Remove field prefix if present
 			if strings.HasPrefix(cleanMessage, field+": ") {
 				cleanMessage = strings.TrimPrefix(cleanMessage, field+": ")
 			}
 
-			// Extract the actual field name (without sub-field notation)
 			fieldName := field
 			if idx := strings.Index(field, "."); idx != -1 {
 				fieldName = field[:idx]
@@ -287,7 +282,6 @@ func (v *Validator) GetFieldErrors(field string) []string {
 func (v *Validator) ToGraphQLError(operationName string) map[string]interface{} {
 	validationErrors := make(map[string][]string)
 	for field, messages := range v.errors {
-		// Extract the actual field name
 		fieldName := field
 		if idx := strings.Index(field, "."); idx != -1 {
 			fieldName = field[:idx]
@@ -323,7 +317,6 @@ func (v *Validator) GraphQLError(operationName string) error {
 }
 
 // GraphQLErrorWithExtensions returns an error with GraphQL extensions
-// This is the recommended method for returning GraphQL errors
 func (v *Validator) GraphQLErrorWithExtensions(operationName string) *ValidationGraphQLError {
 	validationErrors := make(map[string][]string)
 	for field, messages := range v.errors {
@@ -344,25 +337,6 @@ func (v *Validator) GraphQLErrorWithExtensions(operationName string) *Validation
 }
 
 // GetStructuredErrors returns structured validation errors
-// This is the main method to get errors in a structured format
 func (v *Validator) GetStructuredErrors() *ValidationErrors {
 	return v.ParseValidationErrors()
-}
-
-// ValidationGraphQLError is a custom error type for GraphQL validation errors
-type ValidationGraphQLError struct {
-	Message        string                 `json:"message"`
-	Path           []interface{}          `json:"path,omitempty"`
-	ExtensionsData map[string]interface{} `json:"extensions"`
-}
-
-// Error implements the error interface
-func (e *ValidationGraphQLError) Error() string {
-	return e.Message
-}
-
-// Extensions implements the ResolverError interface for graph-gophers/graphql-go
-// This makes the error compatible with GraphQL error extensions
-func (e *ValidationGraphQLError) Extensions() map[string]interface{} {
-	return e.ExtensionsData
 }
