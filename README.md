@@ -1,4 +1,4 @@
-# Go Validator
+# Go Validation Package for User Input
 
 A Laravel-style validation package for Go.
 
@@ -12,7 +12,7 @@ go get github.com/mwangaben/validation
 ```go
 import "github.com/mwangaben/validation"
 
-validator := validator.NewValidator()
+validation := validation.NewValidator()
 
 data := map[string]interface{}{
     "name":  "John Doe",
@@ -21,16 +21,16 @@ data := map[string]interface{}{
 }
 
 rules := map[string][]string{
-    "name":  {validator.Required(), validator.String(), validator.Min(2), validator.Max(100)},
-    "email": {validator.Required(), validator.Email()},
-    "age":   {validator.Required(), validator.Int(), validator.Between(1, 150)},
+    "name":  {validation.Required(), validation.String(), validation.Min(2), validation.Max(100)},
+    "email": {validation.Required(), validation.Email()},
+    "age":   {validation.Required(), validation.Int(), validation.Between(1, 150)},
 }
 
-if validator.Validate(data, rules) {
+if validation.Validate(data, rules) {
     // Validation passed
 } else {
     // Validation failed
-    fmt.Println(validator.Error())
+    fmt.Println(validation.Error())
 }
 ```
 
@@ -39,35 +39,35 @@ if validator.Validate(data, rules) {
 ```go
 // With GORM
 db := gorm.Open(...)
-validator := validator.NewValidatorWithDB(db)
+validation := validation.NewValidatorWithDB(db)
 
 data := map[string]interface{}{
     "email": "john@example.com",
 }
 
 rules := map[string][]string{
-    "email": {validator.Unique("users", "email")},
+    "email": {validation.Unique("users", "email")},
 }
 
-validator.Validate(data, rules)
+validation.Validate(data, rules)
 ```
 #### Custom Validator
 ```go
 type UserValidator struct {
-    *validator.Validator
+    *validation.Validator
 }
 
 func NewUserValidator(db interface{}) *UserValidator {
     return &UserValidator{
-        Validator: validator.NewValidatorWithDB(db),
+        Validation: validation.NewValidatorWithDB(db),
     }
 }
 
 func (uv *UserValidator) ValidateCreateUser(data map[string]interface{}) error {
     rules := map[string][]string{
-        "name":  {validator.Required(), validator.String(), validator.Min(2), validator.Max(100)},
-        "email": {validator.Required(), validator.Email(), validator.Unique("users", "email")},
-        "age":   {validator.Required(), validator.Int(), validator.Between(1, 150)},
+        "name":  {validation.Required(), validation.String(), validation.Min(2), validation.Max(100)},
+        "email": {validation.Required(), validation.Email(), validation.Unique("users", "email")},
+        "age":   {validation.Required(), validation.Int(), validation.Between(1, 150)},
     }
 
     if !uv.Validate(data, rules) {
@@ -137,7 +137,7 @@ func CreateUserHandler(c *gin.Context) {
         "email": {"required", "email", "unique:users,email"},
     }
     
-    if !validator.Validate(data, rules) {
+    if !validation.Validate(data, rules) {
         c.JSON(400, gin.H{"errors": validator.Errors()})
         return
     }
