@@ -132,6 +132,8 @@ func (v *Validator) validateRule(field string, value interface{}, rule string, d
 		return v.validateUnique(value, data, ruleParams[0], ruleParams[1:]...)
 	case "exists":
 		return v.validateExists(value, ruleParams[0], ruleParams[1:]...)
+	case "exists_without_soft_delete":
+		return v.validateExistsWithoutSoftDelete(value, ruleParams[0], ruleParams[1:]...)
 	case "in":
 		return v.validateIn(value, ruleParams)
 	case "not_in":
@@ -196,28 +198,29 @@ func (v *Validator) getErrorMessage(field, rule string) string {
 
 	// Default messages
 	messages := map[string]string{
-		"required":  fmt.Sprintf("The %s field is required.", field),
-		"email":     fmt.Sprintf("The %s must be a valid email address.", field),
-		"string":    fmt.Sprintf("The %s must be a string.", field),
-		"int":       fmt.Sprintf("The %s must be an integer.", field),
-		"numeric":   fmt.Sprintf("The %s must be numeric.", field),
-		"min":       fmt.Sprintf("The %s must be at least %s.", field, param),
-		"max":       fmt.Sprintf("The %s may not be greater than %s.", field, param),
-		"in":        fmt.Sprintf("The selected %s is invalid.", field),
-		"not_in":    fmt.Sprintf("The selected %s is invalid.", field),
-		"confirmed": fmt.Sprintf("The %s confirmation does not match.", field),
-		"unique":    fmt.Sprintf("The %s has already been taken.", field),
-		"exists":    fmt.Sprintf("The selected %s is invalid.", field),
-		"date":      fmt.Sprintf("The %s is not a valid date.", field),
-		"url":       fmt.Sprintf("The %s format is invalid.", field),
-		"alpha":     fmt.Sprintf("The %s may only contain letters.", field),
-		"alpha_num": fmt.Sprintf("The %s may only contain letters and numbers.", field),
-		"boolean":   fmt.Sprintf("The %s field must be true or false.", field),
-		"array":     fmt.Sprintf("The %s must be an array.", field),
-		"between":   fmt.Sprintf("The %s must be between %s.", field, param),
-		"phone":     fmt.Sprintf("The %s must be a valid phone number.", field),
-		"password":  fmt.Sprintf("The %s must be at least 8 characters with at least one uppercase, one lowercase, and one number.", field),
-		"uuid":      fmt.Sprintf("The %s must be a valid UUID.", field),
+		"required":                   fmt.Sprintf("The %s field is required.", field),
+		"email":                      fmt.Sprintf("The %s must be a valid email address.", field),
+		"string":                     fmt.Sprintf("The %s must be a string.", field),
+		"int":                        fmt.Sprintf("The %s must be an integer.", field),
+		"numeric":                    fmt.Sprintf("The %s must be numeric.", field),
+		"min":                        fmt.Sprintf("The %s must be at least %s.", field, param),
+		"max":                        fmt.Sprintf("The %s may not be greater than %s.", field, param),
+		"in":                         fmt.Sprintf("The selected %s is invalid.", field),
+		"not_in":                     fmt.Sprintf("The selected %s is invalid.", field),
+		"confirmed":                  fmt.Sprintf("The %s confirmation does not match.", field),
+		"unique":                     fmt.Sprintf("The %s has already been taken.", field),
+		"exists":                     fmt.Sprintf("The selected %s is invalid.", field),
+		"date":                       fmt.Sprintf("The %s is not a valid date.", field),
+		"url":                        fmt.Sprintf("The %s format is invalid.", field),
+		"alpha":                      fmt.Sprintf("The %s may only contain letters.", field),
+		"alpha_num":                  fmt.Sprintf("The %s may only contain letters and numbers.", field),
+		"boolean":                    fmt.Sprintf("The %s field must be true or false.", field),
+		"array":                      fmt.Sprintf("The %s must be an array.", field),
+		"between":                    fmt.Sprintf("The %s must be between %s.", field, param),
+		"phone":                      fmt.Sprintf("The %s must be a valid phone number.", field),
+		"password":                   fmt.Sprintf("The %s must be at least 8 characters with at least one uppercase, one lowercase, and one number.", field),
+		"uuid":                       fmt.Sprintf("The %s must be a valid UUID.", field),
+		"exists_without_soft_delete": fmt.Sprintf("The selected %s does not exits.", field),
 	}
 
 	if msg, ok := messages[ruleName]; ok {

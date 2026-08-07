@@ -186,7 +186,7 @@ func (v *Validator) validateUnique(value interface{}, data map[string]interface{
 	return count == 0
 }
 
-// validateExists checks if value exists in database
+// validateExists checks if value exists in database (with optional soft delete support)
 func (v *Validator) validateExists(value interface{}, table string, columns ...string) bool {
 	if v.db == nil {
 		return false
@@ -213,11 +213,35 @@ func (v *Validator) validateExists(value interface{}, table string, columns ...s
 	}
 
 	var count int64
-	result := db.Table(table).Where(column+" = ?", strValue).Count(&count)
+	query := db.Table(table).Where(column+" = ?", strValue)
+
+	// Check if table has deleted_at column (soft delete support)
+	if hasDeletedAtColumn(db, table) {
+		query = query.Where("deleted_at IS NULL")
+	}
+
+	result := query.Count(&count)
 	if result.Error != nil {
 		return false
 	}
 
+	return count > 0
+}
+
+// hasDeletedAtColumn checks if a table has a deleted_at column
+func hasDeletedAtColumn(db *gorm.DB, table string) bool {
+	var count int64
+	err := db.Raw(`
+		SELECT COUNT(*) 
+		FROM information_schema.columns 
+		WHERE table_schema = DATABASE() 
+		AND table_name = ? 
+		AND column_name = 'deleted_at'
+	`, table).Count(&count).Error
+
+	if err != nil {
+		return false
+	}
 	return count > 0
 }
 
@@ -247,6 +271,47 @@ func (v *Validator) validateNotIn(value interface{}, disallowed []string) bool {
 		}
 	}
 	return true
+}
+
+// ExistsWithoutSoftDelete returns a rule that checks if a value exists in a table (including soft-deleted)
+func ExistsWithoutSoftDelete(table, column string) string {
+	return "exists_without_soft_delete:" + table + "," + column
+}
+
+// validateExistsWithoutSoftDelete checks if value exists in table (including soft-deleted)
+func (v *Validator) validateExistsWithoutSoftDelete(value interface{}, table string, columns ...string) bool {
+	if v.db == nil {
+		return false
+	}
+
+	column := "id"
+	if len(columns) > 0 {
+		column = columns[0]
+	}
+
+	var strValue string
+	switch val := value.(type) {
+	case string:
+		strValue = val
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		strValue = fmt.Sprintf("%v", val)
+	default:
+		return false
+	}
+
+	db, ok := v.db.(*gorm.DB)
+	if !ok {
+		return false
+	}
+
+	var count int64
+	query := db.Table(table).Where(column+" = ?", strValue)
+	result := query.Count(&count)
+	if result.Error != nil {
+		return false
+	}
+
+	return count > 0
 }
 
 // validateConfirmed checks if value matches confirmation field
