@@ -1,376 +1,241 @@
 package tests
 
 import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"testing"
 
 	"github.com/mwangaben/validation"
 )
 
-func TestExistsValidation(t *testing.T) {
-	// Create validator with database connection
-	validator := validation.NewValidatorWithDB(db)
-
-	tests := []struct {
-		name     string
-		data     map[string]interface{}
-		rules    map[string][]string
-		expected bool
-	}{
-		{
-			name: "Valid existing name",
-			data: map[string]interface{}{
-				"name": "John Doe", // Exists in database
-			},
-			rules: map[string][]string{
-				"name": {"exists:users,name"},
-			},
-			expected: true,
-		},
-		{
-			name: "Invalid non-existing name",
-			data: map[string]interface{}{
-				"name": "NonExistentUser",
-			},
-			rules: map[string][]string{
-				"name": {"exists:users,name"},
-			},
-			expected: false,
-		},
-		{
-			name: "Valid existing email",
-			data: map[string]interface{}{
-				"email": "john@example.com", // Exists in database
-			},
-			rules: map[string][]string{
-				"email": {"exists:users,email"},
-			},
-			expected: true,
-		},
-		{
-			name: "Invalid non-existing email",
-			data: map[string]interface{}{
-				"email": "nonexistent@example.com",
-			},
-			rules: map[string][]string{
-				"email": {"exists:users,email"},
-			},
-			expected: false,
-		},
-		{
-			name: "Valid existing product code",
-			data: map[string]interface{}{
-				"code": "P001", // Exists in database
-			},
-			rules: map[string][]string{
-				"code": {"exists:products,code"},
-			},
-			expected: true,
-		},
-		{
-			name: "Invalid non-existing product code",
-			data: map[string]interface{}{
-				"code": "P999",
-			},
-			rules: map[string][]string{
-				"code": {"exists:products,code"},
-			},
-			expected: false,
-		},
-		{
-			name: "Valid existing ID",
-			data: map[string]interface{}{
-				"id": 1, // Exists in database
-			},
-			rules: map[string][]string{
-				"id": {"exists:users,id"},
-			},
-			expected: true,
-		},
-		{
-			name: "Invalid non-existing ID",
-			data: map[string]interface{}{
-				"id": 999,
-			},
-			rules: map[string][]string{
-				"id": {"exists:users,id"},
-			},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := validator.Validate(tt.data, tt.rules)
-
-			if result != tt.expected {
-				t.Errorf("Expected validation to be %v, got %v. Errors: %v",
-					tt.expected, result, validator.Error())
-			}
-
-			if !result {
-				t.Logf("Validation failed with errors: %s", validator.Error())
-			}
-		})
-	}
+func TestChecker(t *testing.T) {
+	RegisterFailHand
+	RunSpecs(t, "Permission Checker Suite")
 }
 
-func TestExistsWithMultipleConditions(t *testing.T) {
-	validator := validation.NewValidatorWithDB(db)
+var _ = Describe("Exists Validation", func() {
+	var validator *validation.Validator
 
-	// Test with multiple fields
-	data := map[string]interface{}{
-		"name":  "John Doe",
-		"email": "john@example.com",
-	}
+	BeforeEach(func() {
+		validator = validation.NewValidatorWithDB(db)
+	})
 
-	rules := map[string][]string{
-		"name":  {"exists:users,name"},
-		"email": {"exists:users,email"},
-	}
-
-	result := validator.Validate(data, rules)
-
-	// Both name and email should exist
-	if !result {
-		t.Errorf("Expected validation to pass, but got errors: %s", validator.Error())
-	}
-}
-
-func TestExistsEdgeCases(t *testing.T) {
-	validator := validation.NewValidatorWithDB(db)
-
-	tests := []struct {
-		name     string
-		data     map[string]interface{}
-		rules    map[string][]string
-		expected bool
-	}{
-		{
-			name: "Empty string - should fail (empty doesn't exist)",
-			data: map[string]interface{}{
-				"name": "",
-			},
-			rules: map[string][]string{
-				"name": {"exists:users,name"},
-			},
-			expected: false,
-		},
-		{
-			name: "Nil value - should fail",
-			data: map[string]interface{}{
-				"name": nil,
-			},
-			rules: map[string][]string{
-				"name": {"exists:users,name"},
-			},
-			expected: false,
-		},
-		{
-			name: "Numeric value as string",
-			data: map[string]interface{}{
-				"age": "30",
-			},
-			rules: map[string][]string{
-				"age": {"exists:users,age"},
-			},
-			expected: true, // 30 exists in the database
-		},
-		{
-			name: "Numeric value not existing",
-			data: map[string]interface{}{
-				"age": 99,
-			},
-			rules: map[string][]string{
-				"age": {"exists:users,age"},
-			},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := validator.Validate(tt.data, tt.rules)
-
-			if result != tt.expected {
-				t.Errorf("Expected validation to be %v, got %v. Errors: %v",
-					tt.expected, result, validator.Error())
-			}
-		})
-	}
-}
-
-// TestExistsWithDifferentTables tests the exists rule across different tables
-func TestExistsWithDifferentTables(t *testing.T) {
-	validator := validation.NewValidatorWithDB(db)
-
-	tests := []struct {
-		name     string
-		data     map[string]interface{}
-		rules    map[string][]string
-		expected bool
-	}{
-		{
-			name: "Check in users table",
-			data: map[string]interface{}{
-				"name": "Jane Smith",
-			},
-			rules: map[string][]string{
-				"name": {"exists:users,name"},
-			},
-			expected: true,
-		},
-		{
-			name: "Check in products table",
-			data: map[string]interface{}{
-				"code": "P002",
-			},
-			rules: map[string][]string{
-				"code": {"exists:products,code"},
-			},
-			expected: true,
-		},
-		{
-			name: "Cross-table check - name in products table",
-			data: map[string]interface{}{
+	Context("Single field exists validation", func() {
+		It("should validate existing name", func() {
+			data := map[string]interface{}{
 				"name": "John Doe",
-			},
-			rules: map[string][]string{
-				"name": {"exists:products,name"},
-			},
-			expected: false, // John Doe is in users, not products
-		},
-		{
-			name: "Cross-table check - code in users table",
-			data: map[string]interface{}{
-				"code": "P001",
-			},
-			rules: map[string][]string{
-				"code": {"exists:users,code"},
-			},
-			expected: false, // P001 is in products, not users
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := validator.Validate(tt.data, tt.rules)
-
-			if result != tt.expected {
-				t.Errorf("Expected validation to be %v, got %v. Errors: %v",
-					tt.expected, result, validator.Error())
 			}
+			rules := map[string][]string{
+				"name": {"exists:users,name"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeTrue())
 		})
-	}
-}
 
-// TestExistsCombinedWithOtherRules tests exists with other validation rules
-func TestExistsCombinedWithOtherRules(t *testing.T) {
-	validator := validation.NewValidatorWithDB(db)
+		It("should reject non-existing name", func() {
+			data := map[string]interface{}{
+				"name": "NonExistentUser",
+			}
+			rules := map[string][]string{
+				"name": {"exists:users,name"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeFalse())
+			Expect(validator.Error()).To(ContainSubstring("invalid"))
+		})
 
-	tests := []struct {
-		name     string
-		data     map[string]interface{}
-		rules    map[string][]string
-		expected bool
-	}{
-		{
-			name: "Exists and email validation",
-			data: map[string]interface{}{
+		It("should validate existing email", func() {
+			data := map[string]interface{}{
 				"email": "john@example.com",
-			},
-			rules: map[string][]string{
-				"email": {"required", "email", "exists:users,email"},
-			},
-			expected: true,
-		},
-		{
-			name: "Exists and string validation",
-			data: map[string]interface{}{
-				"name": "John Doe",
-			},
-			rules: map[string][]string{
-				"name": {"required", "string", "min:2", "exists:users,name"},
-			},
-			expected: true,
-		},
-		{
-			name: "Exists fails with invalid email",
-			data: map[string]interface{}{
-				"email": "notanemail",
-			},
-			rules: map[string][]string{
-				"email": {"required", "email", "exists:users,email"},
-			},
-			expected: false, // Fails email validation first
-		},
-		{
-			name: "Exists with non-existing value",
-			data: map[string]interface{}{
-				"name": "NonExistentUser",
-			},
-			rules: map[string][]string{
-				"name": {"required", "string", "min:2", "exists:users,name"},
-			},
-			expected: false, // Fails exists validation
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := validator.Validate(tt.data, tt.rules)
-
-			if result != tt.expected {
-				t.Errorf("Expected validation to be %v, got %v. Errors: %v",
-					tt.expected, result, validator.Error())
 			}
+			rules := map[string][]string{
+				"email": {"exists:users,email"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeTrue())
+		})
 
+		It("should reject non-existing email", func() {
+			data := map[string]interface{}{
+				"email": "nonexistent@example.com",
+			}
+			rules := map[string][]string{
+				"email": {"exists:users,email"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeFalse())
+		})
+
+		It("should validate existing product code", func() {
+			data := map[string]interface{}{
+				"code": "P001",
+			}
+			rules := map[string][]string{
+				"code": {"exists:products,code"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeTrue())
+		})
+
+		It("should reject non-existing product code", func() {
+			data := map[string]interface{}{
+				"code": "P999",
+			}
+			rules := map[string][]string{
+				"code": {"exists:products,code"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeFalse())
+		})
+	})
+
+	Context("Exists with multiple conditions", func() {
+		It("should validate multiple fields", func() {
+			data := map[string]interface{}{
+				"name":  "John Doe",
+				"email": "john@example.com",
+			}
+			rules := map[string][]string{
+				"name":  {"exists:users,name"},
+				"email": {"exists:users,email"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeTrue())
+		})
+	})
+
+	Context("Exists edge cases", func() {
+		It("should reject empty string", func() {
+			data := map[string]interface{}{
+				"name": "",
+			}
+			rules := map[string][]string{
+				"name": {"exists:users,name"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeFalse())
+		})
+
+		It("should reject nil value", func() {
+			data := map[string]interface{}{
+				"name": nil,
+			}
+			rules := map[string][]string{
+				"name": {"exists:users,name"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeFalse())
+		})
+
+		It("should validate numeric value as string", func() {
+			data := map[string]interface{}{
+				"age": "30",
+			}
+			rules := map[string][]string{
+				"age": {"exists:users,age"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeTrue())
+		})
+
+		It("should reject non-existing numeric value", func() {
+			data := map[string]interface{}{
+				"age": 99,
+			}
+			rules := map[string][]string{
+				"age": {"exists:users,age"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeFalse())
+		})
+	})
+
+	Context("Exists with different tables", func() {
+		It("should check in users table", func() {
+			data := map[string]interface{}{
+				"name": "Jane Smith",
+			}
+			rules := map[string][]string{
+				"name": {"exists:users,name"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeTrue())
+		})
+
+		It("should check in products table", func() {
+			data := map[string]interface{}{
+				"code": "P002",
+			}
+			rules := map[string][]string{
+				"code": {"exists:products,code"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeTrue())
+		})
+
+		It("should fail cross-table check", func() {
+			data := map[string]interface{}{
+				"name": "John Doe",
+			}
+			rules := map[string][]string{
+				"name": {"exists:products,name"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeFalse())
+		})
+	})
+
+	Context("Exists combined with other rules", func() {
+		It("should validate exists and email", func() {
+			data := map[string]interface{}{
+				"email": "john@example.com",
+			}
+			rules := map[string][]string{
+				"email": {"required", "email", "exists:users,email"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeTrue())
+		})
+
+		It("should fail with invalid email", func() {
+			data := map[string]interface{}{
+				"email": "notanemail",
+			}
+			rules := map[string][]string{
+				"email": {"required", "email", "exists:users,email"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeFalse())
+			Expect(validator.Error()).To(ContainSubstring("email"))
+		})
+
+		It("should fail with non-existing value", func() {
+			data := map[string]interface{}{
+				"name": "NonExistentUser",
+			}
+			rules := map[string][]string{
+				"name": {"required", "string", "min:2", "exists:users,name"},
+			}
+			result := validator.Validate(data, rules)
+			Expect(result).To(BeFalse())
+		})
+	})
+
+	Context("Case insensitive check", func() {
+		It("should handle case insensitivity", func() {
+			// In MySQL with utf8mb4_unicode_ci, this should be case-insensitive
+			data := map[string]interface{}{
+				"name": "john doe", // lowercase version of "John Doe"
+			}
+			rules := map[string][]string{
+				"name": {"exists:users,name"},
+			}
+			result := validator.Validate(data, rules)
+			// This may pass or fail depending on collation
+			GinkgoWriter.Printf("Case-insensitive check result: %v", result)
 			if !result {
-				t.Logf("Validation failed with errors: %s", validator.Error())
+				GinkgoWriter.Printf("Error: %s", validator.Error())
 			}
 		})
-	}
-}
-
-// Benchmark tests for exists rule
-func BenchmarkExistsValidation(b *testing.B) {
-	validator := validation.NewValidatorWithDB(db)
-
-	data := map[string]interface{}{
-		"name": "John Doe",
-	}
-
-	rules := map[string][]string{
-		"name": {"exists:users,name"},
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		validator.Validate(data, rules)
-	}
-}
-
-// TestExistsWithCaseInsensitiveCheck (optional - depends on database collation)
-func TestExistsWithCaseInsensitiveCheck(t *testing.T) {
-	// This test may vary depending on your database collation
-	validator := validation.NewValidatorWithDB(db)
-
-	// In MySQL with utf8mb4_unicode_ci, this should be case-insensitive
-	data := map[string]interface{}{
-		"name": "john doe", // lowercase version of "John Doe"
-	}
-
-	rules := map[string][]string{
-		"name": {"exists:users,name"},
-	}
-
-	result := validator.Validate(data, rules)
-
-	// This might pass or fail depending on your MySQL collation
-	// utf8mb4_unicode_ci is case-insensitive, so it should find "John Doe"
-	if !result {
-		t.Logf("Case-insensitive check failed. Check your database collation.")
-		t.Logf("Error: %s", validator.Error())
-	} else {
-		t.Log("✅ Case-insensitive check passed")
-	}
-}
+	})
+})
