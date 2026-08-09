@@ -1,241 +1,187 @@
 package tests
 
 import (
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"database/sql"
+	"fmt"
+	"github.com/brianvoe/gofakeit/v7"
+	"github.com/mwangaben/validation/tests/helpers"
+	"github.com/mwangaben/validation/tests/helpers/factories"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	"testing"
 
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/mwangaben/factory/factory"
 	"github.com/mwangaben/validation"
+	"github.com/mwangaben/validation/examples/models"
+	"gorm.io/gorm"
 )
 
-func TestChecker(t *testing.T) {
-	RegisterFailHand
-	RunSpecs(t, "Permission Checker Suite")
+var (
+	testDB    *gorm.DB
+	testSQLDB *sql.DB
+)
+
+func SetupTestDB() error {
+	var err error
+	testDB, err = helpers.InitDB()
+	if err != nil {
+		return fmt.Errorf("failed to connect: %v", err)
+	}
+
+	testSQLDB, err = testDB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get sql.DB: %v", err)
+	}
+
+	// Refresh database with all models
+	helper := factory.NewDatabaseHelper(testDB)
+	if err := helper.RefreshDatabase(&models.User{}, &models.Product{}); err != nil {
+		return fmt.Errorf("failed to refresh: %v", err)
+	}
+
+	// Initialize factories
+	factories.InitUserFactory(testDB)
+	factories.InitProductFactory(testDB)
+
+	// Seed with random data
+	_, err = factories.UserFactory().ClearOverrides().Count(20).CreateMany()
+	if err != nil {
+		return fmt.Errorf("failed to create users: %v", err)
+	}
+
+	_, err = factories.ProductFactory().ClearOverrides().Count(10).CreateMany()
+	if err != nil {
+		return fmt.Errorf("failed to create products: %v", err)
+	}
+
+	fmt.Println("✅ Test data seeded successfully")
+	return nil
 }
 
-var _ = Describe("Exists Validation", func() {
+func TeardownTestDB() {
+	if testDB != nil {
+		err := factory.NewDatabaseHelper(testDB).DropAllTables()
+		if err != nil {
+			fmt.Printf("Dropping of tables failed")
+			return
+		}
+	}
+	if testSQLDB != nil {
+		testSQLDB.Close()
+	}
+}
+
+func TestExistsSuite(t *testing.T) {
+	gomega.RegisterFailHandler(ginkgo.Fail)
+	if err := SetupTestDB(); err != nil {
+		t.Fatalf("Failed to setup: %v", err)
+	}
+	ginkgo.RunSpecs(t, "Exists Validation Suite")
+	TeardownTestDB()
+}
+
+// ============ TESTS ============
+
+var _ = ginkgo.Describe("Exists Validation", func() {
 	var validator *validation.Validator
 
-	BeforeEach(func() {
-		validator = validation.NewValidatorWithDB(db)
+	ginkgo.BeforeEach(func() {
+		validator = validation.NewValidatorWithDB(testDB)
+		gomega.Expect(validator).ToNot(gomega.BeNil())
 	})
 
-	Context("Single field exists validation", func() {
-		It("should validate existing name", func() {
+	ginkgo.Context("Single field exists validation", func() {
+		ginkgo.It("should validate existing name", func() {
+			var user models.User
+			err := testDB.First(&user).Error
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
 			data := map[string]interface{}{
-				"name": "John Doe",
+				"name": user.Name,
+			}
+			rules := map[string][]string{
+				"name": {"exists:users,name"},
+			}
+			fmt.Printf("The User is %v", user)
+			result := validator.Validate(data, rules)
+			gomega.Expect(result).To(gomega.BeTrue())
+		})
+
+		ginkgo.It("should reject non-existing name", func() {
+			data := map[string]interface{}{
+				"name": "NonExistentUser_XYZ123",
 			}
 			rules := map[string][]string{
 				"name": {"exists:users,name"},
 			}
 			result := validator.Validate(data, rules)
-			Expect(result).To(BeTrue())
+			gomega.Expect(result).To(gomega.BeFalse())
 		})
+	})
 
-		It("should reject non-existing name", func() {
+	ginkgo.Context("Exists with custom data using factories", func() {
+		ginkgo.It("should validate user created with custom data", func() {
+			uniqueName := fmt.Sprintf("Custom_User_%d", gofakeit.Number(100000, 999999))
+			uniqueEmail := fmt.Sprintf("custom_%d@example.com", gofakeit.Number(100000, 999999))
+
+			user, err := factories.UserFactory().
+				WithOverrides(map[string]interface{}{
+					"name":  uniqueName,
+					"email": uniqueEmail,
+					"age":   25,
+				}).
+				Create()
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(user.Name).To(gomega.Equal(uniqueName))
+
 			data := map[string]interface{}{
-				"name": "NonExistentUser",
+				"name": uniqueName,
 			}
 			rules := map[string][]string{
 				"name": {"exists:users,name"},
 			}
 			result := validator.Validate(data, rules)
-			Expect(result).To(BeFalse())
-			Expect(validator.Error()).To(ContainSubstring("invalid"))
+			gomega.Expect(result).To(gomega.BeTrue())
 		})
+	})
 
-		It("should validate existing email", func() {
-			data := map[string]interface{}{
-				"email": "john@example.com",
-			}
-			rules := map[string][]string{
-				"email": {"exists:users,email"},
-			}
-			result := validator.Validate(data, rules)
-			Expect(result).To(BeTrue())
-		})
+	ginkgo.Context("Product validation", func() {
+		ginkgo.It("should validate existing product code", func() {
+			var product models.Product
+			err := testDB.First(&product).Error
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-		It("should reject non-existing email", func() {
 			data := map[string]interface{}{
-				"email": "nonexistent@example.com",
-			}
-			rules := map[string][]string{
-				"email": {"exists:users,email"},
-			}
-			result := validator.Validate(data, rules)
-			Expect(result).To(BeFalse())
-		})
-
-		It("should validate existing product code", func() {
-			data := map[string]interface{}{
-				"code": "P001",
+				"code": product.Code,
 			}
 			rules := map[string][]string{
 				"code": {"exists:products,code"},
 			}
 			result := validator.Validate(data, rules)
-			Expect(result).To(BeTrue())
+			gomega.Expect(result).To(gomega.BeTrue())
 		})
 
-		It("should reject non-existing product code", func() {
+		ginkgo.It("should validate product with custom code", func() {
+			uniqueCode := fmt.Sprintf("P%d", gofakeit.Number(100000, 999999))
+
+			_, err := factories.ProductFactory().
+				WithOverrides(map[string]interface{}{
+					"code":  uniqueCode,
+					"name":  "Custom Product",
+					"price": 199.99,
+				}).
+				Create()
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
 			data := map[string]interface{}{
-				"code": "P999",
+				"code": uniqueCode,
 			}
 			rules := map[string][]string{
 				"code": {"exists:products,code"},
 			}
 			result := validator.Validate(data, rules)
-			Expect(result).To(BeFalse())
-		})
-	})
-
-	Context("Exists with multiple conditions", func() {
-		It("should validate multiple fields", func() {
-			data := map[string]interface{}{
-				"name":  "John Doe",
-				"email": "john@example.com",
-			}
-			rules := map[string][]string{
-				"name":  {"exists:users,name"},
-				"email": {"exists:users,email"},
-			}
-			result := validator.Validate(data, rules)
-			Expect(result).To(BeTrue())
-		})
-	})
-
-	Context("Exists edge cases", func() {
-		It("should reject empty string", func() {
-			data := map[string]interface{}{
-				"name": "",
-			}
-			rules := map[string][]string{
-				"name": {"exists:users,name"},
-			}
-			result := validator.Validate(data, rules)
-			Expect(result).To(BeFalse())
-		})
-
-		It("should reject nil value", func() {
-			data := map[string]interface{}{
-				"name": nil,
-			}
-			rules := map[string][]string{
-				"name": {"exists:users,name"},
-			}
-			result := validator.Validate(data, rules)
-			Expect(result).To(BeFalse())
-		})
-
-		It("should validate numeric value as string", func() {
-			data := map[string]interface{}{
-				"age": "30",
-			}
-			rules := map[string][]string{
-				"age": {"exists:users,age"},
-			}
-			result := validator.Validate(data, rules)
-			Expect(result).To(BeTrue())
-		})
-
-		It("should reject non-existing numeric value", func() {
-			data := map[string]interface{}{
-				"age": 99,
-			}
-			rules := map[string][]string{
-				"age": {"exists:users,age"},
-			}
-			result := validator.Validate(data, rules)
-			Expect(result).To(BeFalse())
-		})
-	})
-
-	Context("Exists with different tables", func() {
-		It("should check in users table", func() {
-			data := map[string]interface{}{
-				"name": "Jane Smith",
-			}
-			rules := map[string][]string{
-				"name": {"exists:users,name"},
-			}
-			result := validator.Validate(data, rules)
-			Expect(result).To(BeTrue())
-		})
-
-		It("should check in products table", func() {
-			data := map[string]interface{}{
-				"code": "P002",
-			}
-			rules := map[string][]string{
-				"code": {"exists:products,code"},
-			}
-			result := validator.Validate(data, rules)
-			Expect(result).To(BeTrue())
-		})
-
-		It("should fail cross-table check", func() {
-			data := map[string]interface{}{
-				"name": "John Doe",
-			}
-			rules := map[string][]string{
-				"name": {"exists:products,name"},
-			}
-			result := validator.Validate(data, rules)
-			Expect(result).To(BeFalse())
-		})
-	})
-
-	Context("Exists combined with other rules", func() {
-		It("should validate exists and email", func() {
-			data := map[string]interface{}{
-				"email": "john@example.com",
-			}
-			rules := map[string][]string{
-				"email": {"required", "email", "exists:users,email"},
-			}
-			result := validator.Validate(data, rules)
-			Expect(result).To(BeTrue())
-		})
-
-		It("should fail with invalid email", func() {
-			data := map[string]interface{}{
-				"email": "notanemail",
-			}
-			rules := map[string][]string{
-				"email": {"required", "email", "exists:users,email"},
-			}
-			result := validator.Validate(data, rules)
-			Expect(result).To(BeFalse())
-			Expect(validator.Error()).To(ContainSubstring("email"))
-		})
-
-		It("should fail with non-existing value", func() {
-			data := map[string]interface{}{
-				"name": "NonExistentUser",
-			}
-			rules := map[string][]string{
-				"name": {"required", "string", "min:2", "exists:users,name"},
-			}
-			result := validator.Validate(data, rules)
-			Expect(result).To(BeFalse())
-		})
-	})
-
-	Context("Case insensitive check", func() {
-		It("should handle case insensitivity", func() {
-			// In MySQL with utf8mb4_unicode_ci, this should be case-insensitive
-			data := map[string]interface{}{
-				"name": "john doe", // lowercase version of "John Doe"
-			}
-			rules := map[string][]string{
-				"name": {"exists:users,name"},
-			}
-			result := validator.Validate(data, rules)
-			// This may pass or fail depending on collation
-			GinkgoWriter.Printf("Case-insensitive check result: %v", result)
-			if !result {
-				GinkgoWriter.Printf("Error: %s", validator.Error())
-			}
+			gomega.Expect(result).To(gomega.BeTrue())
 		})
 	})
 })

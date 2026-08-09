@@ -1,0 +1,111 @@
+package helpers
+
+import (
+	"fmt"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"os"
+)
+
+// getEnv gets environment variable or returns default value
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func InitDB() (*gorm.DB, error) {
+	dbHost := getEnv("DB_HOST", "localhost")
+	dbPort := getEnv("DB_PORT", "3306")
+	dbUser := getEnv("DB_USER", "root")
+	dbPassword := getEnv("DB_PASSWORD", "root")
+	dbName := getEnv("DB_NAME", "validation_test")
+
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		dbUser, dbPassword, dbHost, dbPort, dbName,
+	)
+
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %v", err)
+	}
+
+	// Get underlying sql.DB for ping
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sql.DB: %v", err)
+	}
+
+	if err := sqlDB.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %v", err)
+	}
+
+	fmt.Println("✅ Successfully connected to database")
+	return db, nil
+}
+
+// ============ MODELS ============
+
+// User model for testing
+type User struct {
+	ID    uint   `gorm:"primaryKey"`
+	Name  string `gorm:"type:varchar(100);uniqueIndex:idx_users_name"`
+	Email string `gorm:"type:varchar(100);uniqueIndex:idx_users_email"`
+	Age   int
+}
+
+// Product model for testing
+type Product struct {
+	ID    uint   `gorm:"primaryKey"`
+	Code  string `gorm:"type:varchar(50);uniqueIndex:idx_products_code"`
+	Name  string `gorm:"type:varchar(100)"`
+	Price float64
+}
+
+// DatabaseRefresh drops ALL tables and recreates them
+func DatabaseRefresh(conn *gorm.DB, models ...interface{}) error {
+	// Drop all tables
+	if err := DropAllTables(conn); err != nil {
+		return fmt.Errorf("failed to drop tables: %v", err)
+	}
+
+	// Recreate all tables
+	if err := conn.AutoMigrate(models...); err != nil {
+		return fmt.Errorf("failed to recreate tables: %v", err)
+	}
+
+	fmt.Println("✅ Database refreshed successfully (all tables recreated)")
+	return nil
+}
+
+// DropAllTables drops every table in the database
+func DropAllTables(conn *gorm.DB) error {
+	// Disable foreign key checks to avoid constraint errors
+	if err := conn.Exec("SET FOREIGN_KEY_CHECKS = 0").Error; err != nil {
+		return fmt.Errorf("failed to disable foreign key checks: %v", err)
+	}
+	defer conn.Exec("SET FOREIGN_KEY_CHECKS = 1")
+
+	// Get all table names
+	var tables []string
+	if err := conn.Raw("SHOW TABLES").Scan(&tables).Error; err != nil {
+		return fmt.Errorf("failed to get table names: %v", err)
+	}
+
+	if len(tables) == 0 {
+		fmt.Println("ℹ️ No tables to drop")
+		return nil
+	}
+
+	// Drop each table
+	for _, table := range tables {
+		if err := conn.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", table)).Error; err != nil {
+			return fmt.Errorf("failed to drop table %s: %v", table, err)
+		}
+		fmt.Printf("  Dropped table: %s\n", table)
+	}
+
+	fmt.Printf("✅ Dropped %d tables\n", len(tables))
+	return nil
+}

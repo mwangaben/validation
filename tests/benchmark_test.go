@@ -1,13 +1,21 @@
 package tests
 
 import (
+	"fmt"
+	"github.com/mwangaben/validation/tests/helpers"
 	"testing"
 
 	"github.com/mwangaben/validation"
 )
 
 func BenchmarkExistsValidation(b *testing.B) {
-	validator := validation.NewValidatorWithDB(db)
+
+	var err error
+	testDB, err = helpers.InitDB()
+	if err != nil {
+		_ = fmt.Errorf("failed to connect: %v", err)
+	}
+	validator := validation.NewValidatorWithDB(testDB)
 
 	data := map[string]interface{}{
 		"name": "John Doe",
@@ -24,7 +32,7 @@ func BenchmarkExistsValidation(b *testing.B) {
 }
 
 func BenchmarkUniqueValidation(b *testing.B) {
-	validator := validation.NewValidatorWithDB(db)
+	validator := validation.NewValidatorWithDB(testDB)
 
 	data := map[string]interface{}{
 		"name": "UniqueName",
