@@ -38,9 +38,7 @@ func (ve *ValidationErrors) ToMap() map[string][]string {
 		if idx := strings.Index(field, "."); idx != -1 {
 			field = field[:idx]
 		}
-		message := strings.TrimPrefix(err.Message, "The ")
-		message = strings.TrimSuffix(message, ".")
-		message = strings.TrimSpace(message)
+		message := strings.TrimSpace(err.Message)
 		result[field] = append(result[field], message)
 	}
 	return result

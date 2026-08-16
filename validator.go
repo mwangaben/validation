@@ -81,9 +81,7 @@ func (v *Validator) ParseValidationErrors() *ValidationErrors {
 
 	for field, messages := range v.errors {
 		for _, message := range messages {
-			cleanMessage := strings.TrimPrefix(message, "The ")
-			cleanMessage = strings.TrimSuffix(cleanMessage, ".")
-			cleanMessage = strings.TrimSpace(cleanMessage)
+			cleanMessage := strings.TrimSpace(message)
 
 			if strings.HasPrefix(cleanMessage, field+": ") {
 				cleanMessage = strings.TrimPrefix(cleanMessage, field+": ")
