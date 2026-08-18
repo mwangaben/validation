@@ -5,11 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="68a25432-9031-4f74-b8bd-e722024ef3e9" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/tests/utilities_test.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rules.go" beforeDir="false" afterPath="$PROJECT_DIR$/rules.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator.go" beforeDir="false" afterPath="$PROJECT_DIR$/validator.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validators.go" beforeDir="false" afterPath="$PROJECT_DIR$/validators.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -57,6 +54,8 @@
     "Go Test.TestExistsValidation in github.com/mwangaben/validation/tests.executor": "Run",
     "Go Test.TestExistsValidation/should_validate_existing_name in github.com/mwangaben/validation/tests.executor": "Run",
     "Go Test.TestFileValidation in github.com/mwangaben/validation/tests.executor": "Run",
+    "Go Test.TestRuleHelperFunctions in github.com/mwangaben/validation/tests.executor": "Run",
+    "Go Test.TestSizeValidation in github.com/mwangaben/validation/tests.executor": "Run",
     "Go Test.TestSoftDeleteSuite in github.com/mwangaben/validation/tests.executor": "Run",
     "Go Test.TestSoftDeleteValidation in github.com/mwangaben/validation/tests.executor": "Run",
     "Go Test.TestSoftDeleteValidation/exists_rule_should_NOT_find_soft-deleted_users in github.com/mwangaben/validation/tests.executor": "Run",
@@ -68,6 +67,7 @@
     "Go Test.exists_test.go.executor": "Run",
     "Go Test.soft_delete_test.go.executor": "Run",
     "Go Test.unique_test.go.executor": "Run",
+    "Go Test.utilities_test.go.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.GoLinterPluginOnboarding": "true",
     "RunOnceActivity.GoLinterPluginOnboardingV2": "true",
