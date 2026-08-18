@@ -32,6 +32,17 @@ const (
 	RuleMaxLength               = "max_length"
 	RuleMinLength               = "min_length"
 	ExistsWithoutSoftDeleteRule = "exists_without_soft_delete"
+	RuleDecimal                 = "decimal"
+	RuleDimensions              = "dimensions"
+	RuleGt                      = "gt"
+	RuleGte                     = "gte"
+	RuleLt                      = "lt"
+	RuleLte                     = "lte"
+	RuleFile                    = "file"
+	RuleExtensions              = "extensions"
+	RuleMimes                   = "mimes"
+	RuleMimetypes               = "mimetypes"
+	RuleSize                    = "size"
 )
 
 // Helper functions to build rules
@@ -167,4 +178,62 @@ func MaxLength(length int) string {
 // MinLength returns min length rule
 func MinLength(length int) string {
 	return fmt.Sprintf("%s:%d", RuleMinLength, length)
+}
+
+// Decimal returns decimal rule with min and optional max decimal places
+func Decimal(min int, max ...int) string {
+	if len(max) > 0 {
+		return fmt.Sprintf("%s:%d,%d", RuleDecimal, min, max[0])
+	}
+	return fmt.Sprintf("%s:%d", RuleDecimal, min)
+}
+
+// Dimensions returns dimensions rule
+func Dimensions(minWidth, minHeight int) string {
+	return fmt.Sprintf("%s:min_width=%d,min_height=%d", RuleDimensions, minWidth, minHeight)
+}
+
+// Gt returns greater than rule
+func Gt(field string) string {
+	return fmt.Sprintf("%s:%s", RuleGt, field)
+}
+
+// Gte returns greater than or equal rule
+func Gte(field string) string {
+	return fmt.Sprintf("%s:%s", RuleGte, field)
+}
+
+// Lt returns less than rule
+func Lt(field string) string {
+	return fmt.Sprintf("%s:%s", RuleLt, field)
+}
+
+// Lte returns less than or equal rule
+func Lte(field string) string {
+	return fmt.Sprintf("%s:%s", RuleLte, field)
+}
+
+// File returns file rule
+func File() string {
+	return RuleFile
+}
+
+// Extensions returns extensions rule
+func Extensions(extensions ...string) string {
+	return fmt.Sprintf("%s:%s", RuleExtensions, strings.Join(extensions, ","))
+}
+
+// Mimes returns mimes rule
+func Mimes(mimes ...string) string {
+	return fmt.Sprintf("%s:%s", RuleMimes, strings.Join(mimes, ","))
+}
+
+// Mimetypes returns mimetypes rule
+func Mimetypes(mimetypes ...string) string {
+	return fmt.Sprintf("%s:%s", RuleMimetypes, strings.Join(mimetypes, ","))
+}
+
+// Size returns size rule
+func Size(size int) string {
+	return fmt.Sprintf("%s:%d", RuleSize, size)
 }

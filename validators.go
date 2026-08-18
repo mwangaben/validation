@@ -2,8 +2,16 @@ package validation
 
 import (
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
+	"io"
+	"mime/multipart"
 	"net/mail"
 	"net/url"
+	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -12,6 +20,27 @@ import (
 
 	"gorm.io/gorm"
 )
+
+// File represents an uploaded file
+type UploadedFile struct {
+	Name        string
+	Size        int64
+	ContentType string
+	Path        string // Optional: path to temporary file
+	Header      *multipart.FileHeader
+}
+
+// isFile checks if value is a File type
+func isFile(value interface{}) bool {
+	_, ok := value.(*UploadedFile)
+	return ok
+}
+
+// getFileValue returns the File object if value is a file
+func getFileValue(value interface{}) (*UploadedFile, bool) {
+	file, ok := value.(*UploadedFile)
+	return file, ok
+}
 
 // validateRequired checks if value is not empty
 func (v *Validator) validateRequired(value interface{}) bool {
@@ -33,6 +62,8 @@ func (v *Validator) validateRequired(value interface{}) bool {
 		return true
 	case reflect.Array, reflect.Slice, reflect.Map:
 		return val.Len() > 0
+	case reflect.Ptr:
+		return !val.IsNil()
 	default:
 		return true
 	}
@@ -95,6 +126,365 @@ func (v *Validator) validateMax(value interface{}, maxStr string) bool {
 		return true
 	}
 }
+
+// ... [existing validation methods remain unchanged] ...
+
+// validateDecimal checks if value has the required number of decimal places
+func (v *Validator) validateDecimal(value interface{}, minStr string, maxStr ...string) bool {
+	minDecimals, err := strconv.Atoi(minStr)
+	if err != nil {
+		return true
+	}
+
+	maxDecimals := minDecimals
+	if len(maxStr) > 0 {
+		maxDecimals, err = strconv.Atoi(maxStr[0])
+		if err != nil {
+			return true
+		}
+	}
+
+	var strValue string
+	switch val := value.(type) {
+	case float32:
+		strValue = fmt.Sprintf("%f", val)
+	case float64:
+		strValue = fmt.Sprintf("%f", val)
+	case string:
+		strValue = val
+	default:
+		return false
+	}
+
+	// Check if it's a valid number
+	if _, err := strconv.ParseFloat(strValue, 64); err != nil {
+		return false
+	}
+
+	// Count decimal places
+	parts := strings.Split(strValue, ".")
+	if len(parts) != 2 {
+		return minDecimals == 0
+	}
+
+	decimalPlaces := len(strings.TrimRight(parts[1], "0"))
+	return decimalPlaces >= minDecimals && decimalPlaces <= maxDecimals
+}
+
+// validateDimensions checks image dimensions
+// validateDimensions checks image dimensions
+func (v *Validator) validateDimensions(value interface{}, params string) bool {
+	file, ok := getFileValue(value)
+	if !ok {
+		return false
+	}
+
+	// Parse dimensions parameters
+	paramsMap := make(map[string]int)
+	for _, param := range strings.Split(params, ",") {
+		parts := strings.Split(param, "=")
+		if len(parts) == 2 {
+			if val, err := strconv.Atoi(parts[1]); err == nil {
+				paramsMap[parts[0]] = val
+			}
+		}
+	}
+
+	var reader io.Reader
+	var closer io.Closer
+
+	if file.Path != "" {
+		imgFile, err := os.Open(file.Path)
+		if err != nil {
+			return false
+		}
+		reader = imgFile
+		closer = imgFile
+	} else if file.Header != nil {
+		multipartFile, err := file.Header.Open()
+		if err != nil {
+			return false
+		}
+		reader = multipartFile
+		closer = multipartFile
+	} else {
+		return false
+	}
+
+	if closer != nil {
+		defer closer.Close()
+	}
+
+	img, _, err := image.DecodeConfig(reader)
+	if err != nil {
+		return false
+	}
+
+	if minWidth, ok := paramsMap["min_width"]; ok {
+		if img.Width < minWidth {
+			return false
+		}
+	}
+
+	if minHeight, ok := paramsMap["min_height"]; ok {
+		if img.Height < minHeight {
+			return false
+		}
+	}
+
+	if maxWidth, ok := paramsMap["max_width"]; ok {
+		if img.Width > maxWidth {
+			return false
+		}
+	}
+
+	if maxHeight, ok := paramsMap["max_height"]; ok {
+		if img.Height > maxHeight {
+			return false
+		}
+	}
+
+	return true
+}
+
+// getSizeValue returns the size based on the type conventions
+func getSizeValue(value interface{}) (int, bool) {
+	val := reflect.ValueOf(value)
+	switch val.Kind() {
+	case reflect.String:
+		return len(strings.TrimSpace(val.String())), true
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return int(val.Int()), true
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return int(val.Uint()), true
+	case reflect.Float32, reflect.Float64:
+		return int(val.Float()), true
+	case reflect.Array, reflect.Slice, reflect.Map:
+		return val.Len(), true
+	case reflect.Ptr:
+		if file, ok := value.(*UploadedFile); ok {
+			return int(file.Size / 1024), true // Size in kilobytes
+		}
+	}
+	return 0, false
+}
+
+// validateGt checks if value is greater than the given field or value
+func (v *Validator) validateGt(value interface{}, fieldOrValue string) bool {
+	actualSize, ok := getSizeValue(value)
+	if !ok {
+		return false
+	}
+
+	// Check if it's a comparison with another field
+	if otherValue, exists := v.data[fieldOrValue]; exists {
+		otherSize, ok := getSizeValue(otherValue)
+		if !ok {
+			return false
+		}
+		return actualSize > otherSize
+	}
+
+	// Compare with a direct value
+	compareValue, err := strconv.Atoi(fieldOrValue)
+	if err != nil {
+		return false
+	}
+	return actualSize > compareValue
+}
+
+// validateGte checks if value is greater than or equal to the given field or value
+func (v *Validator) validateGte(value interface{}, fieldOrValue string) bool {
+	actualSize, ok := getSizeValue(value)
+	if !ok {
+		return false
+	}
+
+	if otherValue, exists := v.data[fieldOrValue]; exists {
+		otherSize, ok := getSizeValue(otherValue)
+		if !ok {
+			return false
+		}
+		return actualSize >= otherSize
+	}
+
+	compareValue, err := strconv.Atoi(fieldOrValue)
+	if err != nil {
+		return false
+	}
+	return actualSize >= compareValue
+}
+
+// validateLt checks if value is less than the given field or value
+func (v *Validator) validateLt(value interface{}, fieldOrValue string) bool {
+	actualSize, ok := getSizeValue(value)
+	if !ok {
+		return false
+	}
+
+	if otherValue, exists := v.data[fieldOrValue]; exists {
+		otherSize, ok := getSizeValue(otherValue)
+		if !ok {
+			return false
+		}
+		return actualSize < otherSize
+	}
+
+	compareValue, err := strconv.Atoi(fieldOrValue)
+	if err != nil {
+		return false
+	}
+	return actualSize < compareValue
+}
+
+// validateLte checks if value is less than or equal to the given field or value
+func (v *Validator) validateLte(value interface{}, fieldOrValue string) bool {
+	actualSize, ok := getSizeValue(value)
+	if !ok {
+		return false
+	}
+
+	if otherValue, exists := v.data[fieldOrValue]; exists {
+		otherSize, ok := getSizeValue(otherValue)
+		if !ok {
+			return false
+		}
+		return actualSize <= otherSize
+	}
+
+	compareValue, err := strconv.Atoi(fieldOrValue)
+	if err != nil {
+		return false
+	}
+	return actualSize <= compareValue
+}
+
+// validateFile checks if value is a successfully uploaded file
+func (v *Validator) validateFile(value interface{}) bool {
+	if _, ok := getFileValue(value); !ok {
+		return false
+	}
+	return true
+}
+
+// validateExtensions checks if file has the required extension
+func (v *Validator) validateExtensions(value interface{}, extensions ...string) bool {
+	file, ok := getFileValue(value)
+	if !ok {
+		return false
+	}
+
+	ext := strings.ToLower(filepath.Ext(file.Name))
+	if ext == "" {
+		return false
+	}
+	ext = strings.TrimPrefix(ext, ".")
+
+	for _, allowedExt := range extensions {
+		if strings.ToLower(allowedExt) == ext {
+			return true
+		}
+	}
+	return false
+}
+
+// validateMimes checks if file has the required MIME type based on extension
+func (v *Validator) validateMimes(value interface{}, mimes ...string) bool {
+	file, ok := getFileValue(value)
+	if !ok {
+		return false
+	}
+
+	// Get extension from filename
+	ext := strings.ToLower(filepath.Ext(file.Name))
+	if ext == "" {
+		return false
+	}
+	ext = strings.TrimPrefix(ext, ".")
+
+	// Check if the file extension is in the allowed list
+	extensionAllowed := false
+	for _, allowedExt := range mimes {
+		if strings.ToLower(allowedExt) == ext {
+			extensionAllowed = true
+			break
+		}
+	}
+
+	if !extensionAllowed {
+		return false
+	}
+
+	// If ContentType is provided, verify it matches
+	if file.ContentType != "" {
+		// Map extension to expected MIME type
+		extensionMimeMap := map[string]string{
+			"jpg":  "image/jpeg",
+			"jpeg": "image/jpeg",
+			"png":  "image/png",
+			"gif":  "image/gif",
+			"bmp":  "image/bmp",
+			"pdf":  "application/pdf",
+			"txt":  "text/plain",
+			"csv":  "text/csv",
+			"json": "application/json",
+			"xml":  "application/xml",
+			"zip":  "application/zip",
+		}
+
+		expectedMime, exists := extensionMimeMap[ext]
+		if exists {
+			// Check if the actual MIME type matches the expected one
+			return strings.ToLower(file.ContentType) == expectedMime
+		}
+	}
+
+	// If no ContentType provided, just check the extension
+	return true
+}
+
+// validateMimetypes checks if file has the required MIME type
+func (v *Validator) validateMimetypes(value interface{}, mimetypes ...string) bool {
+	file, ok := getFileValue(value)
+	if !ok {
+		return false
+	}
+
+	actualMime := file.ContentType
+	if actualMime == "" {
+		return false
+	}
+
+	for _, allowedMime := range mimetypes {
+		// Handle wildcard patterns like image/*
+		if strings.HasSuffix(allowedMime, "/*") {
+			prefix := strings.TrimSuffix(allowedMime, "*")
+			if strings.HasPrefix(actualMime, prefix) {
+				return true
+			}
+		} else if strings.ToLower(allowedMime) == strings.ToLower(actualMime) {
+			return true
+		}
+	}
+	return false
+}
+
+// validateSize checks if value has the required size
+func (v *Validator) validateSize(value interface{}, sizeStr string) bool {
+	size, err := strconv.Atoi(sizeStr)
+	if err != nil {
+		return true
+	}
+
+	actualSize, ok := getSizeValue(value)
+	if !ok {
+		return false
+	}
+
+	return actualSize == size
+}
+
+// ... [rest of existing validation methods remain unchanged] ...
 
 // validateString checks if value is a string
 func (v *Validator) validateString(value interface{}) bool {

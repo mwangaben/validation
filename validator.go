@@ -161,6 +161,51 @@ func (v *Validator) validateRule(field string, value interface{}, rule string, d
 		return v.validatePassword(value)
 	case "uuid":
 		return v.validateUUID(value)
+	case "decimal":
+		if len(ruleParams) == 1 {
+			return v.validateDecimal(value, ruleParams[0])
+		} else if len(ruleParams) == 2 {
+			return v.validateDecimal(value, ruleParams[0], ruleParams[1])
+		}
+		return true
+	case "dimensions":
+		if len(ruleParams) > 0 {
+			return v.validateDimensions(value, strings.Join(ruleParams, ","))
+		}
+		return true
+	case "gt":
+		if len(ruleParams) == 1 {
+			return v.validateGt(value, ruleParams[0])
+		}
+		return true
+	case "gte":
+		if len(ruleParams) == 1 {
+			return v.validateGte(value, ruleParams[0])
+		}
+		return true
+	case "lt":
+		if len(ruleParams) == 1 {
+			return v.validateLt(value, ruleParams[0])
+		}
+		return true
+	case "lte":
+		if len(ruleParams) == 1 {
+			return v.validateLte(value, ruleParams[0])
+		}
+		return true
+	case "file":
+		return v.validateFile(value)
+	case "extensions":
+		return v.validateExtensions(value, ruleParams...)
+	case "mimes":
+		return v.validateMimes(value, ruleParams...)
+	case "mimetypes":
+		return v.validateMimetypes(value, ruleParams...)
+	case "size":
+		if len(ruleParams) == 1 {
+			return v.validateSize(value, ruleParams[0])
+		}
+		return true
 	default:
 		return true
 	}
@@ -219,6 +264,17 @@ func (v *Validator) getErrorMessage(field, rule string) string {
 		"password":                   fmt.Sprintf("The %s must be at least 8 characters with at least one uppercase, one lowercase, and one number.", field),
 		"uuid":                       fmt.Sprintf("The %s must be a valid UUID.", field),
 		"exists_without_soft_delete": fmt.Sprintf("The selected %s does not exits.", field),
+		"decimal":                    fmt.Sprintf("The %s must have %s decimal place(s).", field, param),
+		"dimensions":                 fmt.Sprintf("The %s has invalid image dimensions.", field),
+		"gt":                         fmt.Sprintf("The %s must be greater than %s.", field, param),
+		"gte":                        fmt.Sprintf("The %s must be greater than or equal to %s.", field, param),
+		"lt":                         fmt.Sprintf("The %s must be less than %s.", field, param),
+		"lte":                        fmt.Sprintf("The %s must be less than or equal to %s.", field, param),
+		"file":                       fmt.Sprintf("The %s must be a file.", field),
+		"extensions":                 fmt.Sprintf("The %s must have one of the following extensions: %s.", field, param),
+		"mimes":                      fmt.Sprintf("The %s must be a file of type: %s.", field, param),
+		"mimetypes":                  fmt.Sprintf("The %s must be a file of type: %s.", field, param),
+		"size":                       fmt.Sprintf("The %s must be %s.", field, param),
 	}
 
 	if msg, ok := messages[ruleName]; ok {
@@ -226,6 +282,8 @@ func (v *Validator) getErrorMessage(field, rule string) string {
 	}
 	return fmt.Sprintf("The %s field is invalid.", field)
 }
+
+// ... [rest of the methods remain unchanged] ...
 
 // Errors returns all validation errors
 func (v *Validator) Errors() map[string][]string {
