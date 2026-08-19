@@ -22,7 +22,7 @@ func runTest(t *testing.T, testFunc func()) {
 
 func setupSoftDeleteTest() {
 	var err error
-	testDB, err = helpers.InitDB()
+	testDB, err = helpers.InitDBPost()
 	Expect(err).NotTo(HaveOccurred())
 
 	err = factory.NewDatabaseHelper(testDB).RefreshDatabase(&models.User{})

@@ -6,7 +6,13 @@
   <component name="ChangeListManager">
     <list default="true" id="68a25432-9031-4f74-b8bd-e722024ef3e9" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.sum" beforeDir="false" afterPath="$PROJECT_DIR$/go.sum" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/exists_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/tests/exists_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/helpers/db.go" beforeDir="false" afterPath="$PROJECT_DIR$/tests/helpers/db.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/soft_delete_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/tests/soft_delete_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/unique_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/tests/unique_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validators.go" beforeDir="false" afterPath="$PROJECT_DIR$/validators.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -59,6 +65,7 @@
     "Go Test.TestSoftDeleteSuite in github.com/mwangaben/validation/tests.executor": "Run",
     "Go Test.TestSoftDeleteValidation in github.com/mwangaben/validation/tests.executor": "Run",
     "Go Test.TestSoftDeleteValidation/exists_rule_should_NOT_find_soft-deleted_users in github.com/mwangaben/validation/tests.executor": "Run",
+    "Go Test.TestSoftDeleteValidation/exists_rule_should_find_non-deleted_users in github.com/mwangaben/validation/tests.executor": "Run",
     "Go Test.TestSoftDeleteValidation/exists_without_soft_delete_rule_should_find_soft-deleted_users in github.com/mwangaben/validation/tests.executor": "Run",
     "Go Test.TestUnique in unique_test.go.executor": "Run",
     "Go Test.TestUniqueSuite in github.com/mwangaben/validation/tests.executor": "Run",
@@ -107,7 +114,7 @@
       <directory value="$PROJECT_DIR$/examples" />
       <method v="2" />
     </configuration>
-    <configuration name="TestComparisonRules in github.com/mwangaben/validation/tests" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+    <configuration name="TestSoftDeleteValidation in github.com/mwangaben/validation/tests" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="validation" />
       <working_directory value="$PROJECT_DIR$/tests" />
       <root_directory value="$PROJECT_DIR$" />
@@ -116,10 +123,10 @@
       <directory value="$PROJECT_DIR$" />
       <filePath value="$PROJECT_DIR$" />
       <framework value="gotest" />
-      <pattern value="^\QTestComparisonRules\E$" />
+      <pattern value="^\QTestSoftDeleteValidation\E$" />
       <method v="2" />
     </configuration>
-    <configuration name="TestFileValidation in github.com/mwangaben/validation/tests" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+    <configuration name="TestSoftDeleteValidation/exists_rule_should_NOT_find_soft-deleted_users in github.com/mwangaben/validation/tests" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="validation" />
       <working_directory value="$PROJECT_DIR$/tests" />
       <root_directory value="$PROJECT_DIR$" />
@@ -128,10 +135,10 @@
       <directory value="$PROJECT_DIR$" />
       <filePath value="$PROJECT_DIR$" />
       <framework value="gotest" />
-      <pattern value="^\QTestFileValidation\E$" />
+      <pattern value="^\QTestSoftDeleteValidation\E$/^\Qexists_rule_should_NOT_find_soft-deleted_users\E$" />
       <method v="2" />
     </configuration>
-    <configuration name="TestRuleHelperFunctions in github.com/mwangaben/validation/tests" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+    <configuration name="TestSoftDeleteValidation/exists_rule_should_find_non-deleted_users in github.com/mwangaben/validation/tests" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="validation" />
       <working_directory value="$PROJECT_DIR$/tests" />
       <root_directory value="$PROJECT_DIR$" />
@@ -140,19 +147,17 @@
       <directory value="$PROJECT_DIR$" />
       <filePath value="$PROJECT_DIR$" />
       <framework value="gotest" />
-      <pattern value="^\QTestRuleHelperFunctions\E$" />
+      <pattern value="^\QTestSoftDeleteValidation\E$/^\Qexists_rule_should_find_non-deleted_users\E$" />
       <method v="2" />
     </configuration>
-    <configuration name="TestSizeValidation in github.com/mwangaben/validation/tests" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+    <configuration name="unique_test.go" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="validation" />
       <working_directory value="$PROJECT_DIR$/tests" />
       <root_directory value="$PROJECT_DIR$" />
-      <kind value="PACKAGE" />
-      <package value="github.com/mwangaben/validation/tests" />
+      <kind value="FILE" />
       <directory value="$PROJECT_DIR$" />
-      <filePath value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$/tests/unique_test.go" />
       <framework value="gotest" />
-      <pattern value="^\QTestSizeValidation\E$" />
       <method v="2" />
     </configuration>
     <configuration name="utilities_test.go" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
@@ -168,10 +173,10 @@
     <recent_temporary>
       <list>
         <item itemvalue="Go Test.utilities_test.go" />
-        <item itemvalue="Go Test.TestRuleHelperFunctions in github.com/mwangaben/validation/tests" />
-        <item itemvalue="Go Test.TestSizeValidation in github.com/mwangaben/validation/tests" />
-        <item itemvalue="Go Test.TestFileValidation in github.com/mwangaben/validation/tests" />
-        <item itemvalue="Go Test.TestComparisonRules in github.com/mwangaben/validation/tests" />
+        <item itemvalue="Go Test.unique_test.go" />
+        <item itemvalue="Go Test.TestSoftDeleteValidation in github.com/mwangaben/validation/tests" />
+        <item itemvalue="Go Test.TestSoftDeleteValidation/exists_rule_should_NOT_find_soft-deleted_users in github.com/mwangaben/validation/tests" />
+        <item itemvalue="Go Test.TestSoftDeleteValidation/exists_rule_should_find_non-deleted_users in github.com/mwangaben/validation/tests" />
       </list>
     </recent_temporary>
   </component>

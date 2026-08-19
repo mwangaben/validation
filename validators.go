@@ -620,19 +620,7 @@ func (v *Validator) validateExists(value interface{}, table string, columns ...s
 
 // hasDeletedAtColumn checks if a table has a deleted_at column
 func hasDeletedAtColumn(db *gorm.DB, table string) bool {
-	var count int64
-	err := db.Raw(`
-		SELECT COUNT(*) 
-		FROM information_schema.columns 
-		WHERE table_schema = DATABASE() 
-		AND table_name = ? 
-		AND column_name = 'deleted_at'
-	`, table).Count(&count).Error
-
-	if err != nil {
-		return false
-	}
-	return count > 0
+	return db.Migrator().HasColumn(table, "deleted_at")
 }
 
 // validateIn checks if value is in a list

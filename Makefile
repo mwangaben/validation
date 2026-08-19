@@ -2,10 +2,10 @@
 
 # Default environment variables
 DB_HOST ?= localhost
-DB_PORT ?= 3306
-DB_USER ?= root
-DB_PASSWORD ?= root
-DB_NAME ?= gotest
+DB_PORT ?= 5432
+DB_USER ?= benedictmwanga
+DB_PASSWORD ?= 
+DB_NAME ?= validation_test
 
 # Export environment variables for tests
 export DB_HOST

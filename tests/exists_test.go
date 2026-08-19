@@ -30,7 +30,7 @@ func init() {
 
 func setupExistTest() {
 	var err error
-	db, err = helpers.InitDB() // Fixed: assign to global db (no colon)
+	db, err = helpers.InitDBPost() // Fixed: assign to global db (no colon)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize DB: %v", err))
 	}

@@ -16,7 +16,7 @@ var testSQLDB *sql.DB
 
 func SetUpTestDB() error {
 	var err error
-	testDB, err = helpers.InitDB()
+	testDB, err = helpers.InitDBPost()
 	if err != nil {
 		return fmt.Errorf("the DB connection failed %v", err)
 	}
